@@ -63,3 +63,10 @@ export async function leerInicio(key: string, n = 16): Promise<Uint8Array> {
   if (!res.ok) throw new Error(`R2 GET ${res.status}`);
   return new Uint8Array(await res.arrayBuffer()).slice(0, n);
 }
+
+export async function leer(key: string): Promise<Uint8Array> {
+  const { base, client } = config();
+  const res = await client.fetch(url(base, key));
+  if (!res.ok) throw new Error(`R2 GET ${res.status}`);
+  return new Uint8Array(await res.arrayBuffer());
+}

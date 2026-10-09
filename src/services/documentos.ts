@@ -22,7 +22,8 @@ import { calcularTotales, type Moneda } from "@/domain/montos";
 import { alcanceDe } from "@/domain/permisos";
 import { esFinal, type Estado } from "@/domain/workflow";
 import { docxToPdf } from "@/lib/pdf";
-import { guardarArchivo, urlDescarga } from "./almacenamiento";
+import { guardarArchivo, leerArchivo, urlDescarga } from "./almacenamiento";
+import { firmaParaDocumento } from "./firma";
 import { auditar } from "./auditoria";
 import { ErrorNegocio } from "./errores";
 import { acceso, codigo } from "./presupuesto-acceso";
@@ -224,7 +225,7 @@ const nombreArchivo = (tipo: keyof typeof NOMBRE_TIPO, cod: string, cliente: str
 
 /** DOCX + PDF → R2 y documento emitido. Si Gotenberg falla, el PDF queda pendiente. */
 async function emitirDocumento(doc: typeof documentos.$inferSelect, armado: { codigo: string; cliente: string }, fecha: Date, usuarioId: string) {
-  const docx = renderDocx(doc.tipo, armado);
+  const docx = renderDocx(doc.tipo, armado, await firmaParaDocumento());
   const meta = { entidadTipo: "documento", entidadId: doc.id, categoria: doc.tipo, createdBy: usuarioId };
   const docxId = await guardarArchivo(docx, {
     ...meta,
@@ -270,7 +271,7 @@ export async function descargar(documentoId: string, formato: "docx" | "pdf") {
   const { usuario } = await accesoDocumento(doc.presupuestoId, "leer");
   if (formato === "docx") return urlDescarga(doc.docxArchivoId);
   if (!doc.pdfArchivoId) {
-    const docx = renderDocx(doc.tipo, doc.snapshot as object);
+    const docx = await leerArchivo(doc.docxArchivoId); // el emitido, con la firma de ese momento
     const snap = doc.snapshot as { codigo: string; cliente: string };
     const pdfId = await guardarArchivo(await docxToPdf(docx), {
       nombre: nombreArchivo(doc.tipo, snap.codigo, snap.cliente, "pdf"),

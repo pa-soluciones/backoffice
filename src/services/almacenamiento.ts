@@ -77,6 +77,15 @@ export async function urlDescarga(archivoId: string) {
   return r2.urlDescargaFirmada(a.r2Key, a.nombre);
 }
 
+/** Contenido completo (desde el servidor: firma para documentos, DOCX para generar el PDF). */
+export async function leerArchivo(archivoId: string) {
+  const [a] = await db.select().from(archivos).where(eq(archivos.id, archivoId));
+  if (!a || a.deletedAt || a.estado !== "ok") throw new ErrorNegocio("El archivo no existe.");
+  exigirConfigurado();
+  await reservarOperaciones("opsB");
+  return r2.leer(a.r2Key);
+}
+
 /** Borra de R2 (libera almacenamiento) y marca el registro. */
 export async function eliminarArchivo(archivoId: string) {
   const [a] = await db.select().from(archivos).where(eq(archivos.id, archivoId));

@@ -9,6 +9,7 @@ import { MODELOS, type Modelo } from "@/domain/ia";
 import { guardarConfigIA } from "@/services/ia";
 import { fijarProximoNumero, guardarDefaults } from "@/services/configuracion";
 import { aprobarExcedente } from "@/services/cuota-r2";
+import { guardarFirma, quitarFirma } from "@/services/firma";
 import { actualizarRol, crearRol, eliminarRol } from "@/services/roles";
 import {
   actualizarUsuario,
@@ -151,6 +152,24 @@ export async function accionGuardarDefaults(_: Estado, fd: FormData): Promise<Es
   if (!r.success) return { error: primerError(r) };
   return ejecutar(async () => {
     await guardarDefaults(r.data);
+    revalidatePath("/ajustes/presupuestos");
+    return { ok: true };
+  });
+}
+
+export async function accionGuardarFirma(_: Estado, fd: FormData): Promise<Estado> {
+  const f = fd.get("firma");
+  if (!(f instanceof File) || !f.size) return { error: "Elegí una imagen PNG." };
+  return ejecutar(async () => {
+    await guardarFirma(new Uint8Array(await f.arrayBuffer()));
+    revalidatePath("/ajustes/presupuestos");
+    return { ok: true };
+  });
+}
+
+export async function accionQuitarFirma(): Promise<Estado> {
+  return ejecutar(async () => {
+    await quitarFirma();
     revalidatePath("/ajustes/presupuestos");
     return { ok: true };
   });
