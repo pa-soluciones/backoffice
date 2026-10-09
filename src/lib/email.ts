@@ -55,6 +55,8 @@ ${parrafos}${codigo}${boton}${nota}
 
 /** Envía un email. Sin RESEND_API_KEY lo muestra en consola, salvo en producción de Vercel (ahí falla). */
 export async function enviarEmail(to: string, asunto: string, contenido: Contenido) {
+  // Usuarios sin email real (dominio reservado .invalid): no se envía nada.
+  if (to.endsWith(".invalid")) return;
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     if (process.env.VERCEL_ENV === "production") throw new Error("RESEND_API_KEY no configurada");

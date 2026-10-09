@@ -1,9 +1,10 @@
 "use client";
 
-import { startTransition, useActionState } from "react";
+import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAccion } from "@/hooks/use-accion";
 import {
   accionCambiarCorreo,
   accionConfirmar2fa,
@@ -13,18 +14,6 @@ import {
   accionReenviar,
   accionVerificarEmail,
 } from "./actions";
-
-// React resetea los campos tras un `action` de formulario; con onSubmit los valores quedan
-// cargados si el servidor devuelve un error.
-function useAccion<S>(fn: (s: Awaited<S>, fd: FormData) => Promise<S>, inicial: Awaited<S>) {
-  const [estado, accion, pending] = useActionState<S, FormData>(fn, inicial);
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    startTransition(() => accion(fd));
-  };
-  return [estado, onSubmit, pending] as const;
-}
 
 function Campo({ label, ...props }: { label: string } & React.ComponentProps<typeof Input>) {
   return (
