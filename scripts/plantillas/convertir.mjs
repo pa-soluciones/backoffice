@@ -3,7 +3,7 @@
 // de ejemplo por tags, convierte filas de tabla en bucles y párrafos editables en bloques.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import PizZip from "pizzip";
-import { aplicar, bloque, conTexto, parrafos } from "./ooxml.mjs";
+import { aplicar, bloque, conTexto, parrafos, reemplazarTexto } from "./ooxml.mjs";
 
 const ORIGEN = "spec/templates";
 const DESTINO = "templates";
@@ -17,6 +17,16 @@ function literales(xml, pares) {
   for (const [de, a] of pares) {
     if (!xml.includes(de)) falla(`no encontré "${de}"`);
     xml = xml.split(de).join(a);
+  }
+  return xml;
+}
+
+/** Como `literales`, pero tolera placeholders partidos en varios runs. */
+function textos(xml, pares) {
+  for (const [de, a] of pares) {
+    const [nuevo, n] = reemplazarTexto(xml, de, a);
+    if (!n) falla(`no encontré "${de}"`);
+    xml = nuevo;
   }
   return xml;
 }
@@ -107,6 +117,30 @@ convertir("Template Presupuesto.docx", "presupuesto.docx", {
         ["forma_pago", "40% de anticipo"],
         ["garantia", "Garantía de mano de obra"],
         ["notas", "Cualquier trabajo adicional"],
+      ],
+    });
+  },
+});
+
+// ── Trabajo adicional ─────────────────────────────────────────────────────────
+convertir("Template Trabajo adicional.docx", "adicional.docx", {
+  "word/header1.xml": (x) =>
+    textos(x, [
+      ["&lt;ID Presupuesto&gt;-AD1", "{codigo}"],
+      ["Nro.&lt;ID Presupuesto&gt;— &lt;Fecha presupuesto&gt;", "Nro. {presupuesto_codigo} — {presupuesto_fecha}"],
+      ["&lt;Fecha de Emisión&gt;", "{fecha}"],
+      ["&lt;Nombre Contratista&gt;", "{cliente}"],
+      ["&lt;Director Obra&gt;", "{director}"],
+      ["&lt;Ubicación Obra&gt;", "{direccion}"],
+    ]),
+  "word/document.xml": (x) => {
+    x = fila(x, "Perforaciones en Viga de Ø 102", ["{#items}{nro}", "{descripcion}", "{cantidad}", "{precio}", "{subtotal}{/items}"]);
+    x = fila(x, "Subtotal trabajos adicionales", [null, "{total}"]);
+    return editarParrafos(x, {
+      bloques: [
+        ["objeto", "Cotización de trabajos adicionales"],
+        ["descripcion", "Ejecución de"],
+        ["observaciones", "Los valores unitarios incluyen", "Validez de la presente"],
       ],
     });
   },

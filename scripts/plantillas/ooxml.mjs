@@ -72,3 +72,48 @@ export function aplicar(xml, cambios) {
   for (const c of [...cambios].sort((a, b) => b.start - a.start)) xml = xml.slice(0, c.start) + c.nuevo + xml.slice(c.end);
   return xml;
 }
+
+/**
+ * Reemplaza `buscado` (texto ya escapado, p. ej. "&lt;Director Obra&gt;") aunque Word lo haya
+ * partido en varios runs: el reemplazo queda en el primer run (con su formato) y se quita el
+ * resto del texto de los runs siguientes. Devuelve [xml, cantidad de reemplazos].
+ */
+export function reemplazarTexto(xml, buscado, nuevo) {
+  let total = 0;
+  const cambios = [];
+  for (const p of parrafos(xml)) {
+    const ts = [...p.xml.matchAll(/(<w:t(?: [^>]*)?>)([^<]*)(<\/w:t>)/g)].map((m) => ({
+      ini: p.start + m.index + m[1].length,
+      texto: m[2],
+    }));
+    let unido = ts.map((t) => t.texto).join("");
+    if (!unido.includes(buscado)) continue;
+    const textos = ts.map((t) => t.texto);
+    let desde = 0;
+    for (;;) {
+      const i = unido.indexOf(buscado, desde);
+      if (i < 0) break;
+      total++;
+      let acum = 0;
+      let restante = buscado.length;
+      let puesto = false;
+      for (let k = 0; k < textos.length && restante > 0; k++) {
+        const largo = textos[k].length;
+        const ini = Math.max(0, i - acum);
+        if (i < acum + largo && ini < largo) {
+          const quita = Math.min(largo - ini, restante);
+          textos[k] = textos[k].slice(0, ini) + (puesto ? "" : nuevo) + textos[k].slice(ini + quita);
+          restante -= quita;
+          puesto = true;
+        }
+        acum += largo;
+      }
+      unido = textos.join("");
+      desde = i + nuevo.length;
+    }
+    ts.forEach((t, k) => {
+      if (textos[k] !== t.texto) cambios.push({ start: t.ini, end: t.ini + t.texto.length, nuevo: textos[k] });
+    });
+  }
+  return [aplicar(xml, cambios), total];
+}
