@@ -25,6 +25,8 @@ export type Contexto = {
   fechaConfirmacion?: string | null;
   motivo?: string | null;
   saldoPendiente?: number;
+  /** Artículos con saldo en la obra (falta el cierre de materiales). */
+  materialesSinCerrar?: number;
 };
 
 type Regla = { hasta: Estado; requiere?: (c: Contexto) => string | null };
@@ -59,8 +61,12 @@ const REGLAS: Record<Estado, Regla[]> = {
     { hasta: "en_progreso", requiere: (c) => (c.fechaConfirmacion ? null : "Indicá la fecha de confirmación del cliente.") },
     { hasta: "rechazado", requiere: conMotivo },
   ],
-  // ponytail: el cierre de materiales (spec/08 RF-STK-05) se agrega como requisito en F7.
-  en_progreso: [{ hasta: "pendiente_liquidacion" }],
+  en_progreso: [
+    {
+      hasta: "pendiente_liquidacion",
+      requiere: (c) => (c.materialesSinCerrar ? "Falta el cierre de materiales: indicá qué se consumió y qué vuelve al depósito." : null),
+    },
+  ],
   pendiente_liquidacion: [
     {
       hasta: "terminado",

@@ -106,6 +106,11 @@ describe("workflow", () => {
     expect(validarTransicion("visita_tecnica", "en_espera", { ...c, visitaResuelta: true })).toBeNull();
   });
 
+  it("no pasa a Pendiente liquidación sin cierre de materiales (spec/08)", () => {
+    expect(validarTransicion("en_progreso", "pendiente_liquidacion", { ...base, materialesSinCerrar: 2 })).toMatch(/cierre de materiales/);
+    expect(validarTransicion("en_progreso", "pendiente_liquidacion", { ...base, materialesSinCerrar: 0 })).toBeNull();
+  });
+
   it("confirmación exige fecha; rechazo y cancelación exigen motivo", () => {
     expect(validarTransicion("en_espera", "en_progreso", base)).toMatch(/fecha/);
     expect(validarTransicion("en_espera", "en_progreso", { ...base, fechaConfirmacion: "2026-10-09" })).toBeNull();
