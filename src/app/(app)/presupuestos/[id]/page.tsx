@@ -11,7 +11,7 @@ import { formatearMonto } from "@/domain/montos";
 import { alcanceDe } from "@/domain/permisos";
 import { destinos, ESTADOS, esFinal, type Estado } from "@/domain/workflow";
 import { listarAdicionales } from "@/services/adicionales";
-import { responsablesDeVisitas } from "@/services/agenda";
+import { listarJornadas, responsablesDeVisitas } from "@/services/agenda";
 import { listarAnexos } from "@/services/anexos";
 import { balancePresupuesto } from "@/services/campo";
 import { listarCertificaciones } from "@/services/certificaciones";
@@ -33,6 +33,7 @@ import { TablaBalance } from "../_componentes/balance";
 import { BotonNuevaCertificacion } from "../_componentes/certificacion";
 import { Cobros } from "../_componentes/cobros";
 import { Materiales } from "../_componentes/materiales";
+import { Jornadas } from "../_componentes/jornadas";
 import { ResumenEconomico } from "../_componentes/resumen";
 import { ListaGastos } from "../_componentes/gastos";
 import { FormGasto } from "../../campo/_componentes/form-gasto";
@@ -74,7 +75,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
   }
   const permisos = await getPermisos(usuario.id);
   const puede = (m: Parameters<typeof alcanceDe>[1], a: Parameters<typeof alcanceDe>[2]) => !!alcanceDe(permisos, m, a);
-  const [admin, usuarios, responsables, docs, adicionales, anexos, balance, cobros, certificaciones, materiales, disponibles, gastos, cats, resumen] = await Promise.all([
+  const [admin, usuarios, responsables, docs, adicionales, anexos, balance, cobros, certificaciones, materiales, disponibles, gastos, cats, resumen, jornadas] = await Promise.all([
     esAdmin(usuario.id),
     opcionesUsuarios(),
     responsablesDeVisitas(p.visitas.map((v) => v.id)),
@@ -89,6 +90,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
     puede("gastos", "leer") && p.verMontos && EN_CURSO.includes(p.estado) ? listarGastos({ presupuestoId: id }) : null,
     categoriasGasto(),
     p.verMontos && EN_CURSO.includes(p.estado) ? resumenPresupuesto(id) : null,
+    puede("agenda", "leer") && EN_CURSO.includes(p.estado) ? listarJornadas("2000-01-01", "2999-12-31", id) : null,
   ]);
   const cerrado = esFinal(p.estado);
   const borrador = p.revisionActual?.estado === "borrador";
@@ -322,9 +324,16 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
         <Seccion
           titulo="Campo"
           accion={
-            <Link href={`/presupuestos/${p.id}/campo`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-              <HardHat data-icon="inline-start" /> Registros y fotos
-            </Link>
+            <span className="flex flex-wrap gap-2">
+              {puede("documentos", "leer") && (
+                <Link href={`/presupuestos/${p.id}/reportes`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  <FileText data-icon="inline-start" /> Reportes mensuales
+                </Link>
+              )}
+              <Link href={`/presupuestos/${p.id}/campo`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                <HardHat data-icon="inline-start" /> Registros y fotos
+              </Link>
+            </span>
           }
         >
           <TablaBalance filas={balance.filas} totales={balance.totales} verMontos={balance.verMontos} moneda={p.moneda} />
@@ -334,6 +343,12 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
       {anexos && (
         <Seccion titulo="Anexos">
           <Anexos presupuestoId={p.id} anexos={anexos} puedeSubir={puede("anexos", "escribir")} puedeEliminar={puede("anexos", "eliminar")} />
+        </Seccion>
+      )}
+
+      {jornadas && (p.estado === "en_progreso" || jornadas.length > 0) && (
+        <Seccion titulo="Jornadas de trabajo">
+          <Jornadas presupuestoId={p.id} jornadas={jornadas} usuarios={usuarios} editable={p.estado === "en_progreso" && puede("agenda", "escribir")} />
         </Seccion>
       )}
 

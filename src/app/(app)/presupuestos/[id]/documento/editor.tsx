@@ -9,10 +9,11 @@ import * as adicional from "@/documents/adicional";
 import * as certificacion from "@/documents/certificacion";
 import * as control from "@/documents/control";
 import * as presupuesto from "@/documents/presupuesto";
+import * as reporte from "@/documents/reporte";
 import { cn } from "@/lib/utils";
 import { accionGuardarBloques, accionRestaurarVersion } from "../../actions";
 import { AsistenteIA } from "./asistente-ia";
-import { VistaPrevia, VistaPreviaAdicional, VistaPreviaCertificacion, VistaPreviaControl } from "./vista-previa";
+import { VistaPrevia, VistaPreviaAdicional, VistaPreviaCertificacion, VistaPreviaControl, VistaPreviaReporte } from "./vista-previa";
 
 type Version = { nro: number; origen: string; at: Date; usuario: string | null };
 
@@ -20,14 +21,15 @@ const hora = new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "
 const ORIGEN: Record<string, string> = { usuario: "", ia: " · IA", mcp: " · MCP", sistema: " · inicial" };
 const AUTOGUARDADO_MS = 30_000;
 
-type Tipo = "presupuesto" | "adicional" | "control" | "certificacion";
-type Datos = presupuesto.DatosPresupuesto | adicional.DatosAdicional | control.DatosControl | certificacion.DatosCertificacion;
+type Tipo = "presupuesto" | "adicional" | "control" | "certificacion" | "reporte";
+type Datos = presupuesto.DatosPresupuesto | adicional.DatosAdicional | control.DatosControl | certificacion.DatosCertificacion | reporte.DatosReporte;
 // Cada tipo de documento aporta sus bloques, variables y armado (los mismos que usa el servidor).
 const MODULOS = {
   presupuesto: { BLOQUES: presupuesto.BLOQUES, variables: presupuesto.variables, armar: presupuesto.armar },
   adicional: { BLOQUES: adicional.BLOQUES, variables: adicional.variables, armar: adicional.armar },
   control: { BLOQUES: control.BLOQUES, variables: control.variables, armar: control.armar },
   certificacion: { BLOQUES: certificacion.BLOQUES, variables: certificacion.variables, armar: certificacion.armar },
+  reporte: { BLOQUES: reporte.BLOQUES, variables: reporte.variables, armar: reporte.armar },
 } as unknown as Record<Tipo, { BLOQUES: presupuesto.DefBloque[]; variables: (d: Datos) => Record<string, string>; armar: (d: Datos, b: Record<string, string>) => object }>;
 /** Alto del campo según el texto (≈48 caracteres por renglón en el ancho del panel). */
 const filas = (t: string) => Math.min(12, Math.max(2, t.split("\n").reduce((n, l) => n + Math.ceil((l.length || 1) / 48), 0)));
@@ -211,7 +213,9 @@ export function EditorDocumento({
 
         <section aria-label="Vista previa" className={cn("min-w-0 overflow-x-auto rounded-xl bg-muted p-2 sm:p-4", vista === "editar" && "hidden lg:block")}>
           <div className="lg:sticky lg:top-20">
-            {tipo === "certificacion" ? (
+            {tipo === "reporte" ? (
+              <VistaPreviaReporte d={doc as reporte.DocReporte} activo={activo} onElegir={editable ? elegir : undefined} />
+            ) : tipo === "certificacion" ? (
               <VistaPreviaCertificacion d={doc as certificacion.DocCertificacion} activo={activo} onElegir={editable ? elegir : undefined} />
             ) : tipo === "control" ? (
               <VistaPreviaControl d={doc as control.DocControl} activo={activo} onElegir={editable ? elegir : undefined} />

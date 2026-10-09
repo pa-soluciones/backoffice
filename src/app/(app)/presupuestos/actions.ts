@@ -13,10 +13,11 @@ import {
   guardarItemsAdicional,
 } from "@/services/adicionales";
 import { ESTADOS_ADICIONAL, type EstadoAdicional } from "@/domain/adicionales";
-import { agendarVisita, resolverVisita } from "@/services/agenda";
+import { agendarVisita, eliminarJornada, planificarJornada, resolverVisita } from "@/services/agenda";
 import { confirmarAnexo, eliminarAnexo, prepararAnexo, urlAnexo } from "@/services/anexos";
 import { eliminarCobro, registrarCobro } from "@/services/cobros";
 import { crearCertificacion, emitirCertificacion, fijarParametrosCertificacion } from "@/services/certificaciones";
+import { crearReporte, emitirReporte, fijarCifrasReporte } from "@/services/reportes";
 import { MEDIOS } from "@/domain/cobros";
 import { crearControl, descargar, emitirControl, fijarAlcanceControl, guardarBloques, restaurarVersion } from "@/services/documentos";
 import { proponerBloque } from "@/services/ia";
@@ -402,4 +403,41 @@ export async function accionEmitirCertificacion(presupuestoId: string, id: strin
     cod = await emitirCertificacion(id);
   }, [rutaCertificacion(presupuestoId, id), `/presupuestos/${presupuestoId}`]);
   return r?.error ? r : { ok: `Emitida ${cod}.` };
+}
+
+// ── Jornadas ──────────────────────────────────────────────────────────────────
+
+export async function accionPlanificarJornada(presupuestoId: string, _: Estado_, fd: FormData): Promise<Estado_> {
+  const notas = String(fd.get("notas") ?? "").trim() || null;
+  return ejecutar(
+    async () => {
+      await planificarJornada(presupuestoId, { fecha: String(fd.get("fecha") ?? ""), operarios: fd.getAll("operarios").map(String), notas });
+    },
+    [`/presupuestos/${presupuestoId}`, "/agenda"],
+  );
+}
+
+export async function accionEliminarJornada(presupuestoId: string, id: string): Promise<Estado_> {
+  return ejecutar(() => eliminarJornada(id), [`/presupuestos/${presupuestoId}`, "/agenda"]);
+}
+
+// ── Reporte mensual ───────────────────────────────────────────────────────────
+
+const rutaReporte = (presupuestoId: string, id: string) => `/presupuestos/${presupuestoId}/reportes/${id}`;
+
+export async function accionCrearReporte(presupuestoId: string, _: Estado_, fd: FormData): Promise<Estado_> {
+  return ejecutar(async () => rutaReporte(presupuestoId, await crearReporte(presupuestoId, String(fd.get("periodo") ?? ""))), [`/presupuestos/${presupuestoId}/reportes`]);
+}
+
+export async function accionCifrasReporte(presupuestoId: string, id: string, _: Estado_, fd: FormData): Promise<Estado_> {
+  const n = (k: string) => Number(fd.get(k));
+  return ejecutar(() => fijarCifrasReporte(id, { trabajadores: n("trabajadores"), dias: n("dias"), accidentes: n("accidentes"), diasPerdidos: n("diasPerdidos") }), [rutaReporte(presupuestoId, id)]);
+}
+
+export async function accionEmitirReporte(presupuestoId: string, id: string): Promise<Estado_> {
+  let cod = "";
+  const r = await ejecutar(async () => {
+    cod = await emitirReporte(id);
+  }, [rutaReporte(presupuestoId, id), `/presupuestos/${presupuestoId}/reportes`]);
+  return r?.error ? r : { ok: `Emitido ${cod}.` };
 }

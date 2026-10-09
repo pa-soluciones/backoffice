@@ -3,6 +3,7 @@ import type { Parrafo } from "@/domain/bloques";
 import type { DocAdicional } from "@/documents/adicional";
 import type { DocCertificacion } from "@/documents/certificacion";
 import type { DocControl } from "@/documents/control";
+import type { DocReporte } from "@/documents/reporte";
 import type { DocPresupuesto } from "@/documents/presupuesto";
 import { cn } from "@/lib/utils";
 
@@ -431,5 +432,74 @@ export function VistaPreviaCertificacion({ d, activo, onElegir }: Editable & { d
         <Texto ps={b("observaciones")} />
       </Bloque>
     </Hoja>
+  );
+}
+
+export function VistaPreviaReporte({ d, activo, onElegir }: Editable & { d: DocReporte }) {
+  const e = { activo, onElegir };
+  const celda = "border border-[#1a1a1a] p-2";
+  return (
+    <article
+      className="mx-auto w-full max-w-[794px] space-y-4 bg-white px-10 py-8 font-[family-name:var(--font-poppins)] text-[12px] text-[#1a1a1a] shadow-lg"
+      aria-label="Vista previa del documento"
+    >
+      <p className="text-right text-[11px]">Fecha de Emisión: {d.fecha}</p>
+      <h2 className="text-center text-lg font-bold">REPORTE MENSUAL ESTADISTICO</h2>
+      <table className="w-full border-collapse">
+        <tbody>
+          <tr>
+            <td className={`${celda} font-semibold`}>EMPRESA / CONTRATISTA:</td>
+            <td className={celda} colSpan={2}>
+              {d.cliente}
+            </td>
+          </tr>
+          <tr>
+            <td className={`${celda} font-semibold`}>DOMICILIO DE LA OBRA:</td>
+            <td className={celda} colSpan={2}>
+              {d.direccion}
+            </td>
+          </tr>
+          <tr className="text-center font-semibold">
+            <td className={celda}>PERIODO REPORTADO</td>
+            <td className={celda}>AÑO {d.anio}</td>
+            <td className={celda}>MES {d.mes}</td>
+          </tr>
+        </tbody>
+      </table>
+      <table className="w-full border-collapse text-center">
+        <thead>
+          <tr className="font-semibold">
+            {["CANTIDAD DE TRABAJADORES", "CANTIDAD DE ACCIDENTES", "DIAS TRABAJADOS", "DIAS PERDIDOS POR ACCIDENTES"].map((h) => (
+              <th key={h} className={celda}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="text-base">
+            {[d.trabajadores, d.accidentes, d.dias, d.dias_perdidos].map((v, i) => (
+              <td key={i} className={celda}>
+                {v}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+      <div className={celda}>
+        <p className="font-semibold">OBSERVACIONES / COMENTARIOS</p>
+        <Bloque id="observaciones" {...e}>
+          <Texto ps={bloquesDe(d)("observaciones")} />
+        </Bloque>
+      </div>
+      <div className="grid grid-cols-2 gap-10 pt-12 text-center text-[11px] font-semibold">
+        <p className="border-t border-[#1a1a1a] pt-1">
+          {d.responsable}
+          <br />
+          FIRMA Y ACLARACION DEL RESPONSABLE DE LA EMPRESA
+        </p>
+        <p className="border-t border-[#1a1a1a] pt-1">FIRMA Y ACLARACION DEL RESPONSABLE DE HIGIENE Y SEGURIDAD</p>
+      </div>
+    </article>
   );
 }
