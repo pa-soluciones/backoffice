@@ -55,3 +55,18 @@ export function mimePorNombre(nombre: string): MimePermitido | null {
   if (!ext) return null;
   return (Object.entries(TIPOS_PERMITIDOS).find(([, t]) => t.ext.split(",").includes(ext))?.[0] as MimePermitido) ?? null;
 }
+
+/** Ancho y alto de un PNG (cabecera IHDR), o null si no es PNG. */
+export function pngDimensiones(b: Uint8Array): { ancho: number; alto: number } | null {
+  if (familiaPorFirma(b) !== "png" || b.length < 24) return null;
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  return { ancho: v.getUint32(16), alto: v.getUint32(20) };
+}
+
+export const FIRMA_MAX_BYTES = 1024 * 1024; // spec/06 RF-FIR-02
+
+/** Tamaño de la firma en el documento (EMU): entra en la caja de la plantilla sin deformarse. */
+export function medidaFirma(ancho: number, alto: number, caja = { cx: 1_600_000, cy: 628_650 }) {
+  const k = Math.min(caja.cx / ancho, caja.cy / alto);
+  return { cx: Math.round(ancho * k), cy: Math.round(alto * k) };
+}

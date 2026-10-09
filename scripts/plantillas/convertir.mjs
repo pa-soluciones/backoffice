@@ -72,6 +72,18 @@ function fila(xml, marca, tagsPorCelda) {
   return xml.slice(0, f.index) + nueva + xml.slice(f.index + f[0].length);
 }
 
+/**
+ * La imagen anclada en "Atentamente." (el logo) se nombra "firma": al generar, si la empresa
+ * cargó su firma, src/documents/render.ts la reemplaza ahí.
+ */
+function marcarFirma(xml) {
+  const ps = parrafos(xml);
+  const p = ps.find((x) => x.text.trim() === "Atentamente.") ?? falla("no encontré \"Atentamente.\"");
+  const docPr = p.xml.match(/<wp:docPr [^>]*name="[^"]*"/g) ?? [];
+  if (docPr.length !== 1) falla(`"Atentamente." tiene ${docPr.length} imágenes`);
+  return aplicar(xml, [{ start: p.start, end: p.end, nuevo: p.xml.replace(/(<wp:docPr [^>]*name=")[^"]*"/, '$1firma"') }]);
+}
+
 function convertir(origen, destino, partes) {
   const zip = new PizZip(readFileSync(`${ORIGEN}/${origen}`));
   for (const [parte, fn] of Object.entries(partes)) {
@@ -103,6 +115,7 @@ convertir("Template Presupuesto.docx", "presupuesto.docx", {
       },
     ),
   "word/document.xml": (x) => {
+    x = marcarFirma(x);
     x = fila(x, "Perforaciones en viga", ["{#items}{nro}", "{descripcion}", "{cantidad}", "{precio}", "{subtotal}{/items}"]);
     x = fila(x, "TOTAL NETO:", [null, "{total}"]);
     return editarParrafos(x, {
@@ -134,6 +147,7 @@ convertir("Template Trabajo adicional.docx", "adicional.docx", {
       ["&lt;Ubicación Obra&gt;", "{direccion}"],
     ]),
   "word/document.xml": (x) => {
+    x = marcarFirma(x);
     x = fila(x, "Perforaciones en Viga de Ø 102", ["{#items}{nro}", "{descripcion}", "{cantidad}", "{precio}", "{subtotal}{/items}"]);
     x = fila(x, "Subtotal trabajos adicionales", [null, "{total}"]);
     return editarParrafos(x, {

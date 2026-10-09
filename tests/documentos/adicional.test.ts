@@ -39,4 +39,19 @@ describe("documento adicional", () => {
     expect(cuerpo).toContain("Validez de la presente cotización: 15 días");
     expect(`${header}${cuerpo}`).not.toMatch(/\{[#/^]?\w+\}|&lt;[^&]+&gt;/);
   });
+
+  it("pone la firma de la empresa debajo de Atentamente. sin deformarla", () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 2, 0x58, 0, 0, 0, 0xc8, 1, 2, 3]);
+    const armado = armar(datos, bloquesPorDefecto(datos));
+    const sin = new PizZip(renderDocx("adicional", armado));
+    const con = new PizZip(renderDocx("adicional", armado, { png, ancho: 600, alto: 200 }));
+    expect(sin.file("word/document.xml")!.asText()).toContain("svgBlip"); // sin firma: logo original
+    const xml = con.file("word/document.xml")!.asText();
+    const dibujo = xml.slice(xml.lastIndexOf("<w:drawing>", xml.indexOf('name="firma"')), xml.indexOf("</w:drawing>", xml.indexOf('name="firma"')));
+    expect(dibujo).not.toContain("svgBlip");
+    expect(dibujo.match(/cx="\d+" cy="\d+"/g)).toEqual(['cx="1600000" cy="533333"', 'cx="1600000" cy="533333"']);
+    expect(con.file("word/media/image1.png")!.asUint8Array()).toEqual(png);
+    expect(texto(con.generate({ type: "uint8array" }), "word/document.xml")).toContain("Atentamente.");
+  });
 });
+
