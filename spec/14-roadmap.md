@@ -20,6 +20,8 @@ Cada fase termina desplegada en Vercel (preview → main) y usable. Orden pensad
 
 ### Notas de implementación
 - **F3:** los adicionales (`-ADn`) pasan a F4 junto con su documento. El tablero no tiene arrastrar y soltar todavía (el cambio de estado se hace desde el detalle). Las jornadas de trabajo (RF-AGE-05) quedan para F5. Hasta F6 (cobros), pasar a Terminado pide motivo porque todavía no se conoce el saldo.
+- **F4:** firma de empresa única para todos los documentos (sin elección por tipo, sello ni firma del usuario: RF-FIR-01 parcial).
+- **F5:** la galería de evidencia muestra las fotos por registro, agrupables por piso/fecha/diámetro (sin filtros por operario ni ZIP, RF-EVI-02). Las jornadas de trabajo (RF-AGE-05) pasan a F8 junto con los recordatorios. El control lleva las firmas en blanco (sin imagen de firma del operador). Sin aviso de cuota del almacenamiento del navegador (RNF-06).
 
 ## Antes de producción (checklist)
 - [ ] Migrar a **Vercel Pro** (el plan Hobby no permite uso comercial).
