@@ -2,7 +2,10 @@ import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
+  date,
   index,
+  integer,
+  numeric,
   uniqueIndex,
   jsonb,
   pgTable,
@@ -175,4 +178,156 @@ export const obras = pgTable(
     index().on(t.directorId),
     index("obras_direccion_trgm").using("gin", sql`${norm("direccion")} gin_trgm_ops`),
   ],
+);
+
+// ── Presupuestos (spec/05) ────────────────────────────────────────────────────
+
+/** Montos en numeric(14,2): Drizzle los devuelve como string; se convierten en el servicio. */
+const monto = () => numeric({ precision: 14, scale: 2 });
+
+export const numeracionAnual = pgTable("numeracion_anual", {
+  anio: integer().primaryKey(),
+  proximoNumero: integer().notNull(),
+});
+
+export const presupuestos = pgTable(
+  "presupuestos",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    anio: integer(),
+    numero: integer(),
+    clienteId: uuid().references(() => clientes.id),
+    obraId: uuid().references(() => obras.id),
+    estado: text().notNull().default("prospecto"),
+    estadoAnterior: text(),
+    requiereVisita: boolean().notNull().default(false),
+    moneda: text().$type<"ARS" | "USD">().notNull().default("ARS"),
+    tipoCambioRef: numeric({ precision: 14, scale: 4 }),
+    incluyeIva: boolean().notNull().default(false),
+    ivaPct: numeric({ precision: 5, scale: 2 }).notNull().default("21"),
+    validezDias: integer().notNull().default(7),
+    formaContratacion: text().notNull().default("Ajuste Alzado"),
+    baseAjuste: text().notNull().default("CAC General"),
+    anticipoPct: numeric({ precision: 5, scale: 2 }).notNull().default("40"),
+    bonifTipo: text().$type<"pct" | "monto">(),
+    bonifValor: numeric({ precision: 14, scale: 4 }),
+    fechaConfirmacion: date(),
+    motivoCierre: text(),
+    // Prospecto (puede no tener cliente todavía).
+    contactoNombre: text(),
+    contactoTelefono: text(),
+    contactoEmail: text(),
+    origen: text(),
+    pedido: text(),
+    ...auditoriaCols,
+  },
+  (t) => [
+    uniqueIndex().on(t.anio, t.numero),
+    index().on(t.estado, t.updatedAt),
+    index().on(t.obraId),
+    index().on(t.clienteId),
+  ],
+);
+
+export const presupuestoRevisiones = pgTable(
+  "presupuesto_revisiones",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    presupuestoId: uuid()
+      .notNull()
+      .references(() => presupuestos.id),
+    nro: integer().notNull(),
+    estado: text().$type<"borrador" | "emitida" | "reemplazada">().notNull().default("borrador"),
+    emitidaAt: timestamp({ withTimezone: true }),
+    emitidaPor: uuid().references(() => user.id),
+    /** Totales congelados al emitir (JSON de calcularTotales). */
+    totales: jsonb(),
+    createdAt: ts(),
+  },
+  (t) => [uniqueIndex().on(t.presupuestoId, t.nro)],
+);
+
+export const items = pgTable(
+  "items",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    revisionId: uuid()
+      .notNull()
+      .references(() => presupuestoRevisiones.id, { onDelete: "cascade" }),
+    nro: integer().notNull(),
+    tipoServicio: text().notNull(),
+    elemento: text(),
+    diametroMm: numeric({ precision: 8, scale: 1 }),
+    espesorCm: numeric({ precision: 8, scale: 1 }),
+    unidad: text().notNull().default("u"),
+    cantidad: numeric({ precision: 12, scale: 2 }).notNull(),
+    precioUnitario: monto().notNull(),
+    descripcion: text().notNull(),
+    descripcionManual: boolean().notNull().default(false),
+  },
+  (t) => [index().on(t.revisionId, t.nro)],
+);
+
+export const presupuestoAsignados = pgTable(
+  "presupuesto_asignados",
+  {
+    presupuestoId: uuid()
+      .notNull()
+      .references(() => presupuestos.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    rolTrabajo: text().$type<"responsable" | "operario">().notNull().default("operario"),
+  },
+  (t) => [primaryKey({ columns: [t.presupuestoId, t.userId] }), index().on(t.userId)],
+);
+
+export const estadoHistorial = pgTable(
+  "estado_historial",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    presupuestoId: uuid()
+      .notNull()
+      .references(() => presupuestos.id),
+    desde: text(),
+    hasta: text().notNull(),
+    motivo: text(),
+    userId: uuid().references(() => user.id),
+    at: ts(),
+  },
+  (t) => [index().on(t.presupuestoId, t.at)],
+);
+
+export const visitas = pgTable(
+  "visitas",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    presupuestoId: uuid()
+      .notNull()
+      .references(() => presupuestos.id),
+    inicio: timestamp({ withTimezone: true }),
+    duracionMin: integer().notNull().default(60),
+    direccion: text(),
+    contactoSitio: text(),
+    estado: text().$type<"pendiente" | "agendada" | "realizada" | "omitida" | "cancelada">().notNull().default("pendiente"),
+    notasPrevias: text(),
+    notasResultado: text(),
+    motivoOmision: text(),
+    createdAt: ts(),
+    updatedAt: ts(),
+  },
+  (t) => [index().on(t.presupuestoId), index().on(t.inicio)],
+);
+
+export const visitaResponsables = pgTable(
+  "visita_responsables",
+  {
+    visitaId: uuid()
+      .notNull()
+      .references(() => visitas.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.visitaId, t.userId] })],
 );

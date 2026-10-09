@@ -43,6 +43,13 @@
       "when": 1791518707300,
       "tag": "0005_clientes_obras",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791520033263,
+      "tag": "0006_presupuestos",
+      "breakpoints": true
     }
   ]
 }
