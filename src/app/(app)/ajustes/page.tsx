@@ -1,4 +1,4 @@
-import { ChevronRight, FileText, ScrollText, ShieldCheck, Users } from "lucide-react";
+import { ChevronRight, FileText, HardDrive, ScrollText, ShieldCheck, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -11,6 +11,7 @@ const SECCIONES: { href: string; titulo: string; texto: string; modulo: Modulo; 
   { href: "/ajustes/usuarios", titulo: "Usuarios", texto: "Altas, roles, contraseñas y 2FA", modulo: "usuarios", icon: Users },
   { href: "/ajustes/roles", titulo: "Roles y permisos", texto: "Qué puede hacer cada rol en cada módulo", modulo: "roles", icon: ShieldCheck },
   { href: "/ajustes/presupuestos", titulo: "Presupuestos", texto: "Numeración anual y valores por defecto", modulo: "configuracion", icon: FileText },
+  { href: "/ajustes/almacenamiento", titulo: "Almacenamiento", texto: "Uso del plan gratuito de Cloudflare R2", modulo: "configuracion", icon: HardDrive },
   { href: "/ajustes/auditoria", titulo: "Auditoría", texto: "Quién hizo qué y cuándo", modulo: "auditoria", icon: ScrollText },
 ];
 

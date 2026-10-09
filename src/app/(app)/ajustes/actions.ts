@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { MODULOS, type Permiso } from "@/domain/permisos";
+import { FREE_TIER } from "@/domain/cuota-r2";
 import { fijarProximoNumero, guardarDefaults } from "@/services/configuracion";
+import { aprobarExcedente } from "@/services/cuota-r2";
 import { actualizarRol, crearRol, eliminarRol } from "@/services/roles";
 import {
   actualizarUsuario,
@@ -157,6 +159,23 @@ export async function accionFijarNumero(anio: number, _: Estado, fd: FormData): 
   return ejecutar(async () => {
     await fijarProximoNumero(anio, proximo);
     revalidatePath("/ajustes/presupuestos");
+    return { ok: true };
+  });
+}
+
+// ── Almacenamiento (cuota de R2) ──────────────────────────────────────────────
+
+export async function accionAprobarExcedente(_: Estado, fd: FormData): Promise<Estado> {
+  const factor = Number(fd.get("factor"));
+  if (![1, 1.5, 2].includes(factor)) return { error: "Elegí una opción." };
+  if (fd.get("acepto") !== "on") return { error: "Tenés que confirmar que entendés que puede generar cargos." };
+  return ejecutar(async () => {
+    await aprobarExcedente({
+      almacenamiento: Math.floor(FREE_TIER.almacenamiento * factor),
+      opsA: Math.floor(FREE_TIER.opsA * factor),
+      opsB: Math.floor(FREE_TIER.opsB * factor),
+    });
+    revalidatePath("/ajustes/almacenamiento");
     return { ok: true };
   });
 }
