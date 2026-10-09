@@ -8,6 +8,7 @@ import { ESTADOS_ADICIONAL, TRANSICIONES_ADICIONAL, type EstadoAdicional } from 
 import { alcanceDe } from "@/domain/permisos";
 import { auditar } from "./auditoria";
 import { generarCobrosAdicional } from "./cobros";
+import { notificarPresupuesto } from "./notificaciones";
 import { generarArchivosAdicional } from "./documentos";
 import { ErrorNegocio } from "./errores";
 import { acceso, codigo } from "./presupuesto-acceso";
@@ -143,6 +144,7 @@ export async function emitirAdicional(id: string) {
   await db.update(adicionales).set({ estado: "enviado", emitidoAt: fecha, totales, updatedAt: new Date() }).where(eq(adicionales.id, id));
   const cod = `${codigo(p)}-AD${a.nro}`;
   await auditar({ actorUserId: usuario.id, action: "adicional.emitir", entityType: "presupuesto", entityId: p.id, entityLabel: cod });
+  await notificarPresupuesto(p.id, usuario.id, { tipo: "documento_emitido", titulo: `Se emitió el adicional ${cod}`, link: `/presupuestos/${p.id}/adicionales/${id}` });
   return cod;
 }
 

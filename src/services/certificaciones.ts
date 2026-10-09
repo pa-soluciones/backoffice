@@ -9,6 +9,7 @@ import { ejecutadoPorItem } from "./campo";
 import { generarSaldo, situacionDePagos } from "./cobros";
 import { accesoDocumento, emitirDocumento } from "./documentos";
 import { ErrorNegocio } from "./errores";
+import { notificarPresupuesto } from "./notificaciones";
 import { acceso, codigo } from "./presupuesto-acceso";
 
 // Certificaciones (spec/06 §3.3 y §3.4): de obra (-Cn) o de un adicional (-ADn-Cm), parciales o
@@ -228,6 +229,7 @@ export async function emitirCertificacion(documentoId: string) {
     }
   }
   await auditar({ actorUserId: usuario.id, action: "documento.emitir", entityType: "presupuesto", entityId: d.presupuestoId, entityLabel: datos.codigo, diff: { documentoId, total: t.total, tipo: prm.tipo } });
+  await notificarPresupuesto(d.presupuestoId, usuario.id, { tipo: "documento_emitido", titulo: `Se emitió la certificación ${datos.codigo}`, link: `/presupuestos/${d.presupuestoId}/certificaciones/${documentoId}` });
   return datos.codigo;
 }
 

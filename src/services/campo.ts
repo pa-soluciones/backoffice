@@ -6,6 +6,7 @@ import { alturaPiso, balance, type EstadoRegistro } from "@/domain/balance";
 import { alcanceDe } from "@/domain/permisos";
 import { confirmarSubida, eliminarArchivo, prepararSubida, urlDescarga } from "./almacenamiento";
 import { auditar } from "./auditoria";
+import { notificarPresupuesto } from "./notificaciones";
 import { ErrorNegocio } from "./errores";
 import { acceso, codigo, soloAsignados } from "./presupuesto-acceso";
 import { getPermisos, requirePermiso } from "./sesion";
@@ -135,6 +136,16 @@ export async function registrar(presupuestoId: string, clientId: string, d: Dato
   });
   if (!id) return { id: (await db.select({ id: registrosCampo.id }).from(registrosCampo).where(eq(registrosCampo.clientId, clientId)))[0].id };
   await auditar({ actorUserId: usuario.id, action: "campo.registrar", entityType: "presupuesto", entityId: presupuestoId, entityLabel: codigo(p) ?? undefined, diff: { registroId: id, ...campos(d) } });
+  // Excedente sin adicional que lo cubra (spec/07 RF-BAL-03): se agrupa por presupuesto.
+  const exceso = (await calcularBalance(presupuestoId)).filas.find((f) => f.diametroMm === d.diametroMm && f.diferencia > 0);
+  if (exceso) {
+    await notificarPresupuesto(presupuestoId, usuario.id, {
+      tipo: "excedente",
+      titulo: `${exceso.diferencia} perforaciones Ø${exceso.diametroMm} sin cotizar en ${codigo(p) ?? "la obra"}`,
+      cuerpo: "Hay perforaciones ejecutadas de más: conviene cubrirlas con un trabajo adicional.",
+      link: `/presupuestos/${presupuestoId}/campo`,
+    });
+  }
   return { id };
 }
 

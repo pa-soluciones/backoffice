@@ -466,6 +466,90 @@ export const gastos = pgTable(
   (t) => [index().on(t.presupuestoId), index().on(t.fecha)],
 );
 
+// ── Notificaciones y recordatorios (spec/09) ──────────────────────────────────
+
+export const notificaciones = pgTable(
+  "notificaciones",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    tipo: text().notNull(),
+    titulo: text().notNull(),
+    cuerpo: text(),
+    link: text(),
+    entidadTipo: text(),
+    entidadId: text(),
+    agrupadaCount: integer().notNull().default(1),
+    leidaAt: timestamp({ withTimezone: true }),
+    /** Email: null = no corresponde; si falla se reintenta en el cron (máx. 3). */
+    emailEstado: text().$type<"pendiente" | "enviado" | "error">(),
+    emailIntentos: integer().notNull().default(0),
+    createdAt: ts(),
+    updatedAt: ts(),
+  },
+  (t) => [index().on(t.userId, t.createdAt), index().on(t.emailEstado)],
+);
+
+export const preferenciasUsuario = pgTable("preferencias_usuario", {
+  userId: uuid()
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  notificaciones: jsonb().notNull().default({}),
+});
+
+/** Recordatorio ya generado hoy para una entidad (idempotencia del cron, RF-NOT-06). */
+export const recordatoriosEnviados = pgTable(
+  "recordatorios_enviados",
+  {
+    tipo: text().notNull(),
+    entidadId: text().notNull(),
+    fecha: date().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.tipo, t.entidadId, t.fecha] })],
+);
+
+export const pushSuscripciones = pgTable("push_suscripciones", {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: uuid()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  endpoint: text().notNull().unique(),
+  p256dh: text().notNull(),
+  auth: text().notNull(),
+  userAgent: text(),
+  createdAt: ts(),
+});
+
+export const jornadas = pgTable(
+  "jornadas",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    presupuestoId: uuid()
+      .notNull()
+      .references(() => presupuestos.id),
+    fecha: date().notNull(),
+    notas: text(),
+    createdBy: uuid().references(() => user.id),
+    createdAt: ts(),
+  },
+  (t) => [index().on(t.fecha), index().on(t.presupuestoId)],
+);
+
+export const jornadaOperarios = pgTable(
+  "jornada_operarios",
+  {
+    jornadaId: uuid()
+      .notNull()
+      .references(() => jornadas.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => user.id),
+  },
+  (t) => [primaryKey({ columns: [t.jornadaId, t.userId] })],
+);
+
 // ── Campo (spec/07) ───────────────────────────────────────────────────────────
 
 export const registrosCampo = pgTable(

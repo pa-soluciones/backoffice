@@ -29,6 +29,7 @@ import { guardarArchivo, leerArchivo, urlDescarga } from "./almacenamiento";
 import { firmaParaDocumento } from "./firma";
 import { auditar } from "./auditoria";
 import { datosCampo } from "./campo";
+import { notificarPresupuesto } from "./notificaciones";
 import { datosCertificacion } from "./certificaciones";
 import { ErrorNegocio } from "./errores";
 import { acceso, codigo } from "./presupuesto-acceso";
@@ -440,5 +441,6 @@ export async function emitirControl(documentoId: string) {
   if (datos.registros.length === 0) throw new ErrorNegocio("No hay registros de campo en el período elegido.");
   await emitirDocumento(doc, docControl.armar(datos, doc.bloques), fecha, usuario.id);
   await auditar({ actorUserId: usuario.id, action: "documento.emitir", entityType: "presupuesto", entityId: doc.presupuestoId, entityLabel: datos.codigo, diff: { documentoId, registros: datos.registros.length } });
+  await notificarPresupuesto(doc.presupuestoId, usuario.id, { tipo: "documento_emitido", titulo: `Se emitió el control ${datos.codigo}`, link: `/presupuestos/${doc.presupuestoId}/controles/${documentoId}` });
   return datos.codigo;
 }

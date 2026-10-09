@@ -3,6 +3,7 @@ import { and, asc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clientes, obras, presupuestoAsignados, presupuestos, user, visitaResponsables, visitas } from "@/db/schema";
 import { auditar } from "./auditoria";
+import { destinatarios, notificar } from "./notificaciones";
 import { ErrorNegocio } from "./errores";
 import { codigo } from "./presupuestos";
 import { requirePermiso } from "./sesion";
@@ -45,6 +46,17 @@ export async function agendarVisita(presupuestoId: string, d: DatosVisita) {
     .returning({ id: visitas.id });
   if (d.responsables.length) await db.insert(visitaResponsables).values(d.responsables.map((userId) => ({ visitaId: v.id, userId })));
   await auditar({ actorUserId: usuario.id, action: "visita.agendar", entityType: "presupuesto", entityId: presupuestoId, entityLabel: codigo(p) ?? undefined, diff: d });
+  if (d.inicio) {
+    const cuando = new Intl.DateTimeFormat("es-AR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Argentina/Buenos_Aires" }).format(d.inicio);
+    await notificar(await destinatarios({ usuarios: d.responsables, actorId: usuario.id }), {
+      tipo: "visita_agendada",
+      titulo: `Visita técnica ${codigo(p) ?? ""}: ${cuando}`.replace("  ", " "),
+      cuerpo: d.direccion,
+      link: "/agenda",
+      entidadTipo: "visita",
+      entidadId: v.id,
+    });
+  }
   return v.id;
 }
 

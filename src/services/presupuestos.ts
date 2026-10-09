@@ -17,10 +17,11 @@ import { codigoPresupuesto, codigoRevision } from "@/domain/codigos";
 import { descripcionAuto, type ItemEstructurado, type TipoServicio, type Unidad } from "@/domain/items";
 import { calcularTotales, type Bonificacion, type Moneda, type Totales } from "@/domain/montos";
 import { alcanceDe } from "@/domain/permisos";
-import { esFinal, validarTransicion, type Estado } from "@/domain/workflow";
+import { ESTADOS, esFinal, validarTransicion, type Estado } from "@/domain/workflow";
 import { auditar } from "./auditoria";
 import { generarAnticipo, generarSaldo, situacionDePagos } from "./cobros";
 import { congelarResumen } from "./finanzas";
+import { destinatarios, notificar, notificarPresupuesto } from "./notificaciones";
 import { materialesSinCerrar } from "./stock";
 import { defaultsPresupuesto, siguienteNumero } from "./configuracion";
 import { generarArchivos } from "./documentos";
@@ -263,6 +264,10 @@ export async function crearPresupuesto(d: DatosProspecto) {
     return p;
   });
   await auditar({ actorUserId: usuario.id, action: "presupuesto.crear", entityType: "presupuesto", entityId: p.id, entityLabel: codigo(p) ?? "sin numerar", diff: d });
+  const etiqueta = codigo(p) ?? d.contactoNombre ?? "sin numerar";
+  const link = { link: `/presupuestos/${p.id}`, entidadTipo: "presupuesto", entidadId: p.id };
+  await notificar(await destinatarios({ roles: ["Comercial"], actorId: usuario.id }), { tipo: "nuevo_prospecto", titulo: `Nuevo prospecto ${etiqueta}`, cuerpo: d.pedido, ...link });
+  await notificar(d.asignados.filter((u) => u !== usuario.id), { tipo: "asignacion", titulo: `Te asignaron el presupuesto ${etiqueta}`, cuerpo: d.pedido, ...link });
   return p.id;
 }
 
@@ -273,6 +278,7 @@ export async function actualizarProspecto(id: string, d: DatosProspecto) {
   await validarClienteObra(d.clienteId, d.obraId);
   if (p.clienteId && !d.clienteId) throw new ErrorNegocio("No se puede quitar el cliente de un presupuesto.");
 
+  const antes = await db.select({ userId: presupuestoAsignados.userId }).from(presupuestoAsignados).where(eq(presupuestoAsignados.presupuestoId, id));
   await db.transaction(async (tx) => {
     const numeracion = !p.numero && d.clienteId ? await siguienteNumero(tx) : {};
     await tx
@@ -294,6 +300,8 @@ export async function actualizarProspecto(id: string, d: DatosProspecto) {
     if (d.asignados.length) await tx.insert(presupuestoAsignados).values(d.asignados.map((userId) => ({ presupuestoId: id, userId })));
   });
   await auditar({ actorUserId: usuario.id, action: "presupuesto.actualizar", entityType: "presupuesto", entityId: id, entityLabel: codigo(p) ?? undefined, diff: d });
+  const nuevos = d.asignados.filter((u) => u !== usuario.id && !antes.some((a) => a.userId === u));
+  await notificar(nuevos, { tipo: "asignacion", titulo: `Te asignaron el presupuesto ${codigo(p) ?? p.contactoNombre ?? "sin numerar"}`, link: `/presupuestos/${id}`, entidadTipo: "presupuesto", entidadId: id });
 }
 
 export type DatosComerciales = {
@@ -420,6 +428,7 @@ export async function emitirRevision(id: string) {
   });
   const cod = codigoRevision(codigoPresupuesto(numerado.anio, numerado.numero), r.nro);
   await auditar({ actorUserId: usuario.id, action: "presupuesto.emitir", entityType: "presupuesto", entityId: id, entityLabel: cod });
+  await notificarPresupuesto(id, usuario.id, { tipo: "documento_emitido", titulo: `Se emitió el presupuesto ${cod}` });
   return cod;
 }
 
@@ -478,6 +487,7 @@ export async function cambiarEstado(id: string, hasta: Estado, datos: { motivo?:
     if (hasta === "pendiente_liquidacion") await generarSaldo(tx, id);
   });
   if (hasta === "terminado") await congelarResumen(id);
+  await notificarPresupuesto(id, usuario.id, { tipo: "cambio_estado", titulo: `${codigo(p) ?? "Presupuesto"} pasó a ${ESTADOS[hasta]}`, cuerpo: datos.motivo ?? null });
   await auditar({ actorUserId: usuario.id, action: "presupuesto.estado", entityType: "presupuesto", entityId: id, entityLabel: codigo(p) ?? undefined, diff: { estado: [desde, hasta], ...datos } });
 }
 

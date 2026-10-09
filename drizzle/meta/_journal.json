@@ -113,6 +113,13 @@
       "when": 1791568721857,
       "tag": "0015_stock_gastos",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791571722634,
+      "tag": "0016_notificaciones",
+      "breakpoints": true
     }
   ]
 }
