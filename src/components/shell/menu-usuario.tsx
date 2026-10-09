@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireUsuario } from "@/services/sesion";
 import { BotonSalir } from "./boton-salir";
 
@@ -12,13 +13,12 @@ export async function MenuUsuario() {
 
   return (
     <div className="flex items-center gap-2">
-      <span
-        aria-hidden
-        className="flex size-9 items-center justify-center rounded-full bg-primary font-heading text-sm font-bold text-primary-foreground"
-      >
-        {iniciales}
-      </span>
-      <span className="hidden max-w-40 truncate text-sm lg:inline">{u.name}</span>
+      <Link href="/perfil" className="flex items-center gap-2 rounded-full focus-visible:outline-2" aria-label={`Mi perfil (${u.name})`}>
+        <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-primary font-heading text-sm font-bold text-primary-foreground">
+          {iniciales}
+        </span>
+        <span className="hidden max-w-40 truncate text-sm lg:inline">{u.name}</span>
+      </Link>
       <BotonSalir />
     </div>
   );
