@@ -6,6 +6,7 @@ import { account, roles, session, twoFactor, user, userPermissions, userRoles } 
 import type { Permiso } from "@/domain/permisos";
 import { auth } from "@/lib/auth";
 import { auditar } from "./auditoria";
+import { ErrorNegocio } from "./errores";
 import { requirePermiso } from "./sesion";
 
 // Gestión de usuarios (spec/03 §4). Toda función exige permiso del módulo `usuarios`.
@@ -13,7 +14,7 @@ import { requirePermiso } from "./sesion";
 /** Dominio reservado (RFC 2606): usuarios sin email real. Nunca se les envía correo. */
 export const SIN_EMAIL = "@sin-email.invalid";
 
-export class ErrorNegocio extends Error {}
+
 
 const passwordTemporal = () => randomBytes(9).toString("base64url");
 

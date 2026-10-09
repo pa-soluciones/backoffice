@@ -5,7 +5,8 @@ import { rolePermissions, roles } from "@/db/schema";
 import type { Permiso } from "@/domain/permisos";
 import { auditar } from "./auditoria";
 import { requirePermiso } from "./sesion";
-import { ErrorNegocio, usuariosPorRol } from "./usuarios";
+import { ErrorNegocio } from "./errores";
+import { usuariosPorRol } from "./usuarios";
 
 // Roles y sus permisos (spec/03 §5). El rol de sistema (Administrador) no se edita ni se elimina.
 

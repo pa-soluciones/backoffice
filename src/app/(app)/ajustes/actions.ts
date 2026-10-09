@@ -9,10 +9,10 @@ import {
   actualizarUsuario,
   cambiarActivo,
   crearUsuario,
-  ErrorNegocio,
   resetear2fa,
   resetearPassword,
 } from "@/services/usuarios";
+import { ErrorNegocio } from "@/services/errores";
 
 export type Estado = { error?: string; ok?: boolean; temporal?: string; id?: string } | undefined;
 
