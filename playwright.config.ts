@@ -12,17 +12,23 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
   ],
-  webServer: {
-    command: `pnpm next build && pnpm next start --port ${PORT}`,
-    url: `http://localhost:${PORT}/api/health`,
-    reuseExistingServer: false,
-    timeout: 300_000,
-    env: {
-      DATABASE_URL: TEST_DB,
-      BETTER_AUTH_URL: `http://localhost:${PORT}`,
-      ADMIN_BOOTSTRAP_EMAIL: ADMIN.email,
-      ADMIN_BOOTSTRAP_PASSWORD: ADMIN.password,
-      RESEND_API_KEY: "",
+  webServer: [
+    // Simulador de la API de Claude (e2e/mock-claude.mjs).
+    { command: "node e2e/mock-claude.mjs", url: "http://localhost:3199", reuseExistingServer: false },
+    {
+      command: `pnpm next build && pnpm next start --port ${PORT}`,
+      url: `http://localhost:${PORT}/api/health`,
+      reuseExistingServer: false,
+      timeout: 300_000,
+      env: {
+        DATABASE_URL: TEST_DB,
+        BETTER_AUTH_URL: `http://localhost:${PORT}`,
+        ADMIN_BOOTSTRAP_EMAIL: ADMIN.email,
+        ADMIN_BOOTSTRAP_PASSWORD: ADMIN.password,
+        RESEND_API_KEY: "",
+        ANTHROPIC_API_KEY: "test",
+        ANTHROPIC_BASE_URL: "http://localhost:3199",
+      },
     },
-  },
+  ],
 });

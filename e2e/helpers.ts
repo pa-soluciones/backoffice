@@ -58,3 +58,22 @@ export async function primerInicioAdmin(page: import("@playwright/test").Page, a
   await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
   return { password: nueva, secreto };
 }
+
+/** Cliente + obra + presupuesto con un ítem (9 × Ø152 a $168.000). Queda en el detalle del presupuesto. */
+export async function crearPresupuestoConItem(page: import("@playwright/test").Page) {
+  const { expect } = await import("@playwright/test");
+  await page.goto("/explorador/nuevo");
+  await page.getByLabel("Razón social").fill("Constructora Ejemplo");
+  await page.getByRole("button", { name: "Crear cliente" }).click();
+  await page.getByRole("link", { name: "Nueva obra" }).click();
+  await page.getByLabel("Dirección").fill("Av. Córdoba 1234, CABA");
+  await page.getByRole("button", { name: "Crear obra" }).click();
+  await page.getByRole("link", { name: "Presupuesto" }).click();
+  await page.getByRole("button", { name: "Crear prospecto" }).click();
+  await page.getByLabel("Ø (mm)").fill("152");
+  await page.getByLabel("Espesor (cm)").fill("29");
+  await page.getByLabel("Cantidad").fill("9");
+  await page.getByLabel("Valor unidad").fill("168000");
+  await page.getByRole("button", { name: "Guardar ítems" }).click();
+  await expect(page.getByText("Guardado.")).toBeVisible();
+}
