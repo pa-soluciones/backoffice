@@ -57,6 +57,13 @@
       "when": 1791521777693,
       "tag": "0007_archivos_cuota_r2",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791525738271,
+      "tag": "0008_documentos",
+      "breakpoints": true
     }
   ]
 }

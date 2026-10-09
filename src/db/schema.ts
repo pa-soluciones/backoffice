@@ -369,3 +369,48 @@ export const r2UsoMensual = pgTable("r2_uso_mensual", {
   /** Recursos ya avisados a los admins este mes (para no repetir el email). */
   avisados: jsonb().$type<string[]>().notNull().default([]),
 });
+
+// ── Documentos (spec/06) ──────────────────────────────────────────────────────
+
+export const documentos = pgTable(
+  "documentos",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    tipo: text().$type<"presupuesto">().notNull(),
+    presupuestoId: uuid()
+      .notNull()
+      .references(() => presupuestos.id),
+    /** Documento de presupuesto: uno por revisión. */
+    revisionId: uuid().references(() => presupuestoRevisiones.id),
+    estado: text().$type<"borrador" | "emitido">().notNull().default("borrador"),
+    /** Bloques de texto editables vigentes: { bloqueId: texto }. */
+    bloques: jsonb().$type<Record<string, string>>().notNull(),
+    version: integer().notNull().default(1),
+    emitidoAt: timestamp({ withTimezone: true }),
+    emitidoPor: uuid().references(() => user.id),
+    /** Datos resueltos al emitir (lo que se imprimió). */
+    snapshot: jsonb(),
+    docxArchivoId: uuid().references(() => archivos.id),
+    pdfArchivoId: uuid().references(() => archivos.id),
+    pdfEstado: text().$type<"ok" | "pendiente">(),
+    createdAt: ts(),
+    updatedAt: ts(),
+  },
+  (t) => [uniqueIndex().on(t.revisionId), index().on(t.presupuestoId)],
+);
+
+export const documentoVersiones = pgTable(
+  "documento_versiones",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    documentoId: uuid()
+      .notNull()
+      .references(() => documentos.id, { onDelete: "cascade" }),
+    nro: integer().notNull(),
+    bloques: jsonb().$type<Record<string, string>>().notNull(),
+    origen: text().$type<"usuario" | "ia" | "mcp" | "sistema">().notNull(),
+    userId: uuid().references(() => user.id),
+    at: ts(),
+  },
+  (t) => [uniqueIndex().on(t.documentoId, t.nro)],
+);
