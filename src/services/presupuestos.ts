@@ -20,6 +20,7 @@ import { alcanceDe } from "@/domain/permisos";
 import { esFinal, validarTransicion, type Estado } from "@/domain/workflow";
 import { auditar } from "./auditoria";
 import { generarAnticipo, generarSaldo, situacionDePagos } from "./cobros";
+import { congelarResumen } from "./finanzas";
 import { materialesSinCerrar } from "./stock";
 import { defaultsPresupuesto, siguienteNumero } from "./configuracion";
 import { generarArchivos } from "./documentos";
@@ -476,6 +477,7 @@ export async function cambiarEstado(id: string, hasta: Estado, datos: { motivo?:
     if (hasta === "en_progreso") await generarAnticipo(tx, id);
     if (hasta === "pendiente_liquidacion") await generarSaldo(tx, id);
   });
+  if (hasta === "terminado") await congelarResumen(id);
   await auditar({ actorUserId: usuario.id, action: "presupuesto.estado", entityType: "presupuesto", entityId: id, entityLabel: codigo(p) ?? undefined, diff: { estado: [desde, hasta], ...datos } });
 }
 
@@ -487,7 +489,7 @@ export async function reabrir(id: string, motivo: string) {
   const p = await cargar(id);
   if (!esFinal(p.estado as Estado) || !p.estadoAnterior) throw new ErrorNegocio("El presupuesto no está cerrado.");
   await db.transaction(async (tx) => {
-    await tx.update(presupuestos).set({ estado: p.estadoAnterior!, estadoAnterior: p.estado, motivoCierre: null, updatedAt: new Date() }).where(eq(presupuestos.id, id));
+    await tx.update(presupuestos).set({ estado: p.estadoAnterior!, estadoAnterior: p.estado, motivoCierre: null, resumenFinal: null, updatedAt: new Date() }).where(eq(presupuestos.id, id));
     await tx.insert(estadoHistorial).values({ presupuestoId: id, desde: p.estado, hasta: p.estadoAnterior!, motivo: `Reabierto: ${motivo}`, userId: usuario.id });
   });
   await auditar({ actorUserId: usuario.id, action: "presupuesto.reabrir", entityType: "presupuesto", entityId: id, entityLabel: codigo(p) ?? undefined, diff: { motivo } });

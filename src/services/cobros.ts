@@ -8,6 +8,7 @@ import type { Moneda, Totales } from "@/domain/montos";
 import { alcanceDe } from "@/domain/permisos";
 import { auditar } from "./auditoria";
 import { ErrorNegocio } from "./errores";
+import { congelarResumen } from "./finanzas";
 import { getPermisos, requirePermiso } from "./sesion";
 
 // Cobros (spec/08 §3). Los cobros esperados se generan solos con el workflow; los recibidos se
@@ -189,6 +190,7 @@ export async function registrarCobro(presupuestoId: string, d: DatosCobro) {
     return true;
   });
   await auditar({ actorUserId: usuario.id, action: "cobro.registrar", entityType: "presupuesto", entityId: presupuestoId, entityLabel: cod(p), diff: { ...d, imputado } });
+  if (terminado) await congelarResumen(presupuestoId);
   if (terminado) await auditar({ actorUserId: usuario.id, source: "system", action: "presupuesto.estado", entityType: "presupuesto", entityId: presupuestoId, entityLabel: cod(p), diff: { estado: [p.estado, "terminado"], motivo: "Saldo cobrado" } });
   return { terminado };
 }

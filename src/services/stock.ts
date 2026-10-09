@@ -306,7 +306,7 @@ export async function cerrarMateriales(presupuestoId: string, lineas: { articulo
 
 /** Sin permisos (workflow): artículos que todavía tienen saldo en la obra. */
 export async function materialesSinCerrar(presupuestoId: string) {
-  return Object.values(await saldosEn(db, presupuestoId)).filter((s) => Math.abs(s) > 1e-9).length;
+  return Object.values(await saldosEn(db, presupuestoId)).filter((s) => s > 1e-9).length;
 }
 
 /** Sin permisos (resumen económico): consumos valorizados del presupuesto, en ARS. */
