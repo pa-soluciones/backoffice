@@ -8,6 +8,22 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: pas
+          POSTGRES_PASSWORD: pas
+          POSTGRES_DB: pas_test
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      r2:
+        image: adobe/s3mock
+        env:
+          COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: pas-backoffice
+        ports: ["9000:9090"]
+    env:
+      DATABASE_URL: postgres://pas:pas@localhost:5432/pas_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -18,7 +34,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
+      - run: pnpm db:migrate
       - run: pnpm test
       - run: pnpm build
-        env:
-          DATABASE_URL: postgres://ci:ci@localhost:5432/ci

@@ -16,5 +16,13 @@ services:
     ports:
       - "3001:3000"
 
+  # Sustituto local de Cloudflare R2 (API S3; no valida firmas). Crea el bucket al iniciar.
+  r2:
+    image: adobe/s3mock
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: pas-backoffice
+    ports:
+      - "9000:9090"
+
 volumes:
   pgdata:
