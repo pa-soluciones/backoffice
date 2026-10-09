@@ -12,7 +12,7 @@ const texto = (s: string) => new TextEncoder().encode(s);
 const uso = async () => (await db.select().from(r2UsoMensual))[0];
 
 beforeEach(async () => {
-  await db.execute(sql`truncate r2_uso_mensual, archivos`);
+  await db.execute(sql`truncate r2_uso_mensual, archivos cascade`);
 });
 
 describe("almacenamiento", () => {

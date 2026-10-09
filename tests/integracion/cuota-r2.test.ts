@@ -10,7 +10,7 @@ const mes = mesFacturacion();
 const MB = 1024 ** 2;
 
 beforeEach(async () => {
-  await db.execute(sql`truncate r2_uso_mensual, archivos`);
+  await db.execute(sql`truncate r2_uso_mensual, archivos cascade`);
 });
 
 describe("reservarOperaciones", () => {
