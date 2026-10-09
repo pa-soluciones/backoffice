@@ -58,4 +58,6 @@ test("trabajo adicional: ítems, emisión con documento y aprobación", async ({
   // En el presupuesto aparece el adicional aprobado con su total.
   await page.getByRole("link", { name: /^\d{4}\/0001$/ }).click();
   await expect(page.getByRole("link", { name: /AD1.*Aprobado.*1\.030\.000,00/ })).toBeVisible();
+  // Sin anticipo: se cobra todo contra certificación (spec/05 RF-ADI-04).
+  await expect(page.getByRole("listitem").filter({ hasText: /^Trabajos adicionales \d{4}\/0001-AD1/ })).toContainText("$ 1.030.000,00");
 });
