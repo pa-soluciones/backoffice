@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, exists, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   clientes,
@@ -16,11 +16,13 @@ import {
 import { codigoPresupuesto, codigoRevision } from "@/domain/codigos";
 import { descripcionAuto, type ItemEstructurado, type TipoServicio, type Unidad } from "@/domain/items";
 import { calcularTotales, type Bonificacion, type Moneda, type Totales } from "@/domain/montos";
-import { alcanceDe, type Accion, type Modulo } from "@/domain/permisos";
+import { alcanceDe } from "@/domain/permisos";
 import { esFinal, validarTransicion, type Estado } from "@/domain/workflow";
 import { auditar } from "./auditoria";
 import { defaultsPresupuesto, siguienteNumero } from "./configuracion";
+import { generarArchivos } from "./documentos";
 import { ErrorNegocio } from "./errores";
+import { acceso, codigo, soloAsignados } from "./presupuesto-acceso";
 import { esAdmin, getPermisos, requirePermiso, type Usuario } from "./sesion";
 
 // Presupuestos (spec/05). Unidad de trabajo y de seguimiento.
@@ -28,34 +30,10 @@ import { esAdmin, getPermisos, requirePermiso, type Usuario } from "./sesion";
 const num = (s: string | null) => (s == null ? null : Number(s));
 const vivos = isNull(presupuestos.deletedAt);
 
-export const codigo = (p: { anio: number | null; numero: number | null }) =>
-  p.anio && p.numero ? codigoPresupuesto(p.anio, p.numero) : null;
-
-/** Filtro SQL del alcance "asignados" (spec/03 §5.4). */
-export function soloAsignados(userId: string): SQL {
-  return exists(
-    db
-      .select({ x: sql`1` })
-      .from(presupuestoAsignados)
-      .where(and(eq(presupuestoAsignados.presupuestoId, presupuestos.id), eq(presupuestoAsignados.userId, userId))),
-  );
-}
+export { codigo, soloAsignados };
 
 async function puedeVerMontos(u: Usuario) {
   return !!alcanceDe(await getPermisos(u.id), "presupuestos", "ver_montos");
-}
-
-/** Permiso + alcance sobre un presupuesto concreto. */
-async function acceso(presupuestoId: string, modulo: Modulo, accion: Accion) {
-  const r = await requirePermiso(modulo, accion);
-  if (r.alcance === "asignados") {
-    const [a] = await db
-      .select({ x: presupuestoAsignados.userId })
-      .from(presupuestoAsignados)
-      .where(and(eq(presupuestoAsignados.presupuestoId, presupuestoId), eq(presupuestoAsignados.userId, r.usuario.id)));
-    if (!a) throw new ErrorNegocio("No estás asignado a este presupuesto.");
-  }
-  return r;
 }
 
 async function cargar(id: string) {
@@ -401,8 +379,8 @@ export async function guardarItems(id: string, entrada: ItemEntrada[]) {
 // ── Revisiones ────────────────────────────────────────────────────────────────
 
 /**
- * Emite la revisión en borrador: queda inmutable con sus totales congelados.
- * ponytail: en F4 se suma acá la generación del DOCX/PDF.
+ * Emite la revisión en borrador: numera (si hace falta), genera DOCX/PDF y la deja inmutable
+ * con sus totales congelados. Si no se pueden guardar los archivos, no se emite.
  */
 export async function emitirRevision(id: string) {
   const { usuario } = await acceso(id, "documentos", "emitir");
@@ -413,15 +391,25 @@ export async function emitirRevision(id: string) {
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(items).where(eq(items.revisionId, r.id));
   if (!n) throw new ErrorNegocio("Agregá al menos un ítem antes de emitir.");
 
-  const numerado = await db.transaction(async (tx) => {
-    const numeracion = p.numero ? { anio: p.anio!, numero: p.numero } : await siguienteNumero(tx);
+  // 1) Numerar (un número nunca se reutiliza, aunque después falle la emisión).
+  const numerado = p.numero
+    ? { anio: p.anio!, numero: p.numero }
+    : await db.transaction(async (tx) => {
+        const n = await siguienteNumero(tx);
+        await tx.update(presupuestos).set(n).where(eq(presupuestos.id, id));
+        return n;
+      });
+  // 2) Generar y guardar los archivos (pasa por la guarda de R2).
+  const fecha = new Date();
+  await generarArchivos(id, r.id, fecha, usuario.id);
+  // 3) Marcar la revisión como emitida.
+  await db.transaction(async (tx) => {
     await tx.update(presupuestoRevisiones).set({ estado: "reemplazada" }).where(and(eq(presupuestoRevisiones.presupuestoId, id), eq(presupuestoRevisiones.estado, "emitida")));
     await tx
       .update(presupuestoRevisiones)
-      .set({ estado: "emitida", emitidaAt: new Date(), emitidaPor: usuario.id, totales: await totalesDe(p, r.id) })
+      .set({ estado: "emitida", emitidaAt: fecha, emitidaPor: usuario.id, totales: await totalesDe(p, r.id) })
       .where(eq(presupuestoRevisiones.id, r.id));
-    await tx.update(presupuestos).set({ ...numeracion, updatedAt: new Date() }).where(eq(presupuestos.id, id));
-    return numeracion;
+    await tx.update(presupuestos).set({ updatedAt: new Date() }).where(eq(presupuestos.id, id));
   });
   const cod = codigoRevision(codigoPresupuesto(numerado.anio, numerado.numero), r.nro);
   await auditar({ actorUserId: usuario.id, action: "presupuesto.emitir", entityType: "presupuesto", entityId: id, entityLabel: cod });
