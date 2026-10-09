@@ -15,6 +15,8 @@ import {
 import { ESTADOS_ADICIONAL, type EstadoAdicional } from "@/domain/adicionales";
 import { agendarVisita, resolverVisita } from "@/services/agenda";
 import { confirmarAnexo, eliminarAnexo, prepararAnexo, urlAnexo } from "@/services/anexos";
+import { eliminarCobro, registrarCobro } from "@/services/cobros";
+import { MEDIOS } from "@/domain/cobros";
 import { crearControl, descargar, emitirControl, fijarAlcanceControl, guardarBloques, restaurarVersion } from "@/services/documentos";
 import { proponerBloque } from "@/services/ia";
 import type { AccionIA } from "@/domain/ia";
@@ -334,4 +336,42 @@ export async function accionEmitirControl(presupuestoId: string, id: string): Pr
     cod = await emitirControl(id);
   }, [rutaControl(presupuestoId, id), `/presupuestos/${presupuestoId}/campo`]);
   return r?.error ? r : { ok: `Emitido ${cod}.` };
+}
+
+// ── Cobros ────────────────────────────────────────────────────────────────────
+
+const cobroSchema = z.object({
+  cobroEsperadoId: z.string().uuid().nullable(),
+  descripcionOtro: z.string().max(200).nullable(),
+  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Indicá la fecha."),
+  importe: z.coerce.number().positive("El importe tiene que ser mayor a 0."),
+  monedaRecibida: z.enum(["ARS", "USD"]),
+  tipoCambio: z.coerce.number().positive().nullable(),
+  medio: z.enum(Object.keys(MEDIOS) as [keyof typeof MEDIOS]),
+  referencia: z.string().max(200).nullable(),
+});
+
+export async function accionRegistrarCobro(presupuestoId: string, _: Estado_, fd: FormData): Promise<Estado_> {
+  const v = (k: string) => (String(fd.get(k) ?? "").trim() ? String(fd.get(k)).trim() : null);
+  const concepto = v("concepto");
+  const r = cobroSchema.safeParse({
+    cobroEsperadoId: concepto === "otro" ? null : concepto,
+    descripcionOtro: v("descripcionOtro"),
+    fecha: v("fecha"),
+    importe: v("importe"),
+    monedaRecibida: v("monedaRecibida"),
+    tipoCambio: v("tipoCambio"),
+    medio: v("medio"),
+    referencia: v("referencia"),
+  });
+  if (!r.success) return { error: primerError(r) };
+  let terminado = false;
+  const res = await ejecutar(async () => {
+    terminado = (await registrarCobro(presupuestoId, r.data)).terminado;
+  }, [`/presupuestos/${presupuestoId}`]);
+  return res?.error ? res : { ok: terminado ? "Cobro registrado. Saldo cancelado: el presupuesto pasó a Terminado." : "Cobro registrado." };
+}
+
+export async function accionEliminarCobro(presupuestoId: string, cobroId: string): Promise<Estado_> {
+  return ejecutar(() => eliminarCobro(presupuestoId, cobroId), [`/presupuestos/${presupuestoId}`]);
 }

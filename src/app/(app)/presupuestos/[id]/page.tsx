@@ -14,6 +14,7 @@ import { listarAdicionales } from "@/services/adicionales";
 import { responsablesDeVisitas } from "@/services/agenda";
 import { listarAnexos } from "@/services/anexos";
 import { balancePresupuesto } from "@/services/campo";
+import { listarCobros } from "@/services/cobros";
 import { documentosEmitidos } from "@/services/documentos";
 import { ErrorNegocio } from "@/services/errores";
 import { obtenerPresupuesto, opcionesUsuarios } from "@/services/presupuestos";
@@ -25,6 +26,7 @@ import { ItemsEditor } from "../_componentes/items-editor";
 import { BotonCrearAdicional } from "../_componentes/adicional";
 import { Anexos } from "../_componentes/anexos";
 import { TablaBalance } from "../_componentes/balance";
+import { Cobros } from "../_componentes/cobros";
 import { Descargas } from "../_componentes/descargas";
 import { BotonesRevision } from "../_componentes/revisiones";
 import { AgendarVisita, ResolverVisita } from "../_componentes/visitas";
@@ -61,7 +63,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
   }
   const permisos = await getPermisos(usuario.id);
   const puede = (m: Parameters<typeof alcanceDe>[1], a: Parameters<typeof alcanceDe>[2]) => !!alcanceDe(permisos, m, a);
-  const [admin, usuarios, responsables, docs, adicionales, anexos, balance] = await Promise.all([
+  const [admin, usuarios, responsables, docs, adicionales, anexos, balance, cobros] = await Promise.all([
     esAdmin(usuario.id),
     opcionesUsuarios(),
     responsablesDeVisitas(p.visitas.map((v) => v.id)),
@@ -69,6 +71,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
     listarAdicionales(id),
     puede("anexos", "leer") ? listarAnexos(id) : null,
     puede("campo", "leer") && ["en_progreso", "pendiente_liquidacion", "terminado"].includes(p.estado) ? balancePresupuesto(id) : null,
+    puede("cobros", "leer") && p.verMontos ? listarCobros(id) : null,
   ]);
   const cerrado = esFinal(p.estado);
   const borrador = p.revisionActual?.estado === "borrador";
@@ -235,6 +238,12 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
               ))}
             </ul>
           )}
+        </Seccion>
+      )}
+
+      {cobros && (cobros.esperados.length > 0 || ["en_progreso", "pendiente_liquidacion", "terminado"].includes(p.estado)) && (
+        <Seccion titulo="Cobros">
+          <Cobros presupuestoId={p.id} moneda={p.moneda} {...cobros} puedeRegistrar={puede("cobros", "escribir")} puedeEliminar={puede("cobros", "eliminar")} />
         </Seccion>
       )}
 
