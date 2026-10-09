@@ -95,7 +95,3 @@ test("primer inicio del admin y login con 2FA", async ({ page }) => {
     ]),
   );
 });
-
-test.afterAll(async () => {
-  await sql.end();
-});
