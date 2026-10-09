@@ -6,6 +6,7 @@ import { z } from "zod";
 import { ELEMENTOS, TIPOS_SERVICIO, UNIDADES } from "@/domain/items";
 import { ESTADOS, type Estado } from "@/domain/workflow";
 import { agendarVisita, resolverVisita } from "@/services/agenda";
+import { descargar, guardarBloques, restaurarVersion } from "@/services/documentos";
 import { ErrorNegocio } from "@/services/errores";
 import {
   actualizarProspecto,
@@ -174,4 +175,39 @@ export async function accionResolverVisita(presupuestoId: string, visitaId: stri
   const estado = String(fd.get("estado")) as "realizada" | "omitida" | "cancelada";
   if (!["realizada", "omitida", "cancelada"].includes(estado)) return { error: "Estado inválido." };
   return ejecutar(() => resolverVisita(visitaId, estado, String(fd.get("notas") ?? "").trim() || null), [`/presupuestos/${presupuestoId}`, "/agenda"]);
+}
+
+// ── Documento ─────────────────────────────────────────────────────────────────
+
+export async function accionGuardarBloques(documentoId: string, presupuestoId: string, json: string): Promise<Estado_ & { version?: number }> {
+  const r = z.record(z.string(), z.string().max(10_000)).safeParse(JSON.parse(json));
+  if (!r.success) return { error: "Datos inválidos." };
+  try {
+    const version = await guardarBloques(documentoId, r.data);
+    revalidatePath(`/presupuestos/${presupuestoId}/documento`);
+    return { ok: "Guardado.", version };
+  } catch (e) {
+    if (e instanceof ErrorNegocio) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function accionRestaurarVersion(documentoId: string, presupuestoId: string, nro: number): Promise<Estado_ & { bloques?: Record<string, string> }> {
+  try {
+    const bloques = await restaurarVersion(documentoId, nro);
+    revalidatePath(`/presupuestos/${presupuestoId}/documento`);
+    return { ok: `Versión ${nro} restaurada.`, bloques };
+  } catch (e) {
+    if (e instanceof ErrorNegocio) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function accionUrlDescarga(documentoId: string, formato: "docx" | "pdf"): Promise<{ url?: string; error?: string }> {
+  try {
+    return { url: await descargar(documentoId, formato) };
+  } catch (e) {
+    if (e instanceof ErrorNegocio) return { error: e.message };
+    throw e;
+  }
 }

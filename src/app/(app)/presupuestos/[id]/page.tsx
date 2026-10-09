@@ -1,4 +1,4 @@
-import { CalendarClock, Pencil } from "lucide-react";
+import { CalendarClock, FileText, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,12 +11,14 @@ import { formatearMonto } from "@/domain/montos";
 import { alcanceDe } from "@/domain/permisos";
 import { destinos, ESTADOS, esFinal, type Estado } from "@/domain/workflow";
 import { responsablesDeVisitas } from "@/services/agenda";
+import { documentosEmitidos } from "@/services/documentos";
 import { ErrorNegocio } from "@/services/errores";
 import { obtenerPresupuesto, opcionesUsuarios } from "@/services/presupuestos";
 import { esAdmin, getPermisos, requirePermiso } from "@/services/sesion";
 import { AccionesEstado, Reabrir } from "../_componentes/acciones-estado";
 import { ComercialesForm } from "../_componentes/comerciales-form";
 import { ItemsEditor } from "../_componentes/items-editor";
+import { Descargas } from "../_componentes/descargas";
 import { BotonesRevision } from "../_componentes/revisiones";
 import { AgendarVisita, ResolverVisita } from "../_componentes/visitas";
 
@@ -50,11 +52,12 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
     if (e instanceof ErrorNegocio) notFound();
     throw e;
   }
-  const [permisos, admin, usuarios, responsables] = await Promise.all([
+  const [permisos, admin, usuarios, responsables, docs] = await Promise.all([
     getPermisos(usuario.id),
     esAdmin(usuario.id),
     opcionesUsuarios(),
     responsablesDeVisitas(p.visitas.map((v) => v.id)),
+    documentosEmitidos(id),
   ]);
   const puede = (m: Parameters<typeof alcanceDe>[1], a: Parameters<typeof alcanceDe>[2]) => !!alcanceDe(permisos, m, a);
   const cerrado = esFinal(p.estado);
@@ -63,6 +66,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
   const ultimaEmitida = p.revisiones.find((r) => r.estado === "emitida");
   const vence = ultimaEmitida?.emitidaAt ? new Date(ultimaEmitida.emitidaAt.getTime() + p.validezDias * 86_400_000) : null;
   const vencida = p.estado === "en_espera" && vence && vence < new Date();
+  const verDocumento = p.verMontos && puede("documentos", "leer");
 
   return (
     <>
@@ -164,7 +168,16 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
         </Seccion>
       )}
 
-      <Seccion titulo="Revisiones">
+      <Seccion
+        titulo="Revisiones"
+        accion={
+          verDocumento && p.revisionActual ? (
+            <Link href={`/presupuestos/${p.id}/documento`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <FileText data-icon="inline-start" /> {borrador && !cerrado ? "Editar textos del documento" : "Ver documento"}
+            </Link>
+          ) : null
+        }
+      >
         <ul className="divide-y rounded-xl border bg-card text-sm">
           {p.revisiones.map((r) => (
             <li key={r.id} className="flex flex-wrap items-center gap-3 p-3">
@@ -173,6 +186,11 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
                 {r.estado === "borrador" ? "Borrador" : r.estado === "emitida" ? `Vigente · emitida ${r.emitidaAt ? fecha.format(r.emitidaAt) : ""}` : "Reemplazada"}
               </span>
               {r.total != null && <span className="ml-auto tabular-nums">{formatearMonto(r.total, p.moneda)}</span>}
+              {verDocumento &&
+                (() => {
+                  const d = docs.find((x) => x.revisionId === r.id);
+                  return d ? <Descargas documentoId={d.id} pdfPendiente={d.pdfEstado !== "ok"} /> : null;
+                })()}
             </li>
           ))}
         </ul>
