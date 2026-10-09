@@ -7,7 +7,7 @@ import PizZip from "pizzip";
 // Genera el DOCX a partir de las plantillas de /templates (convertidas desde los Word de PAS
 // con scripts/plantillas/convertir.mjs).
 
-export type Plantilla = "presupuesto";
+export type Plantilla = "presupuesto" | "adicional";
 
 export function renderDocx(plantilla: Plantilla, datos: object): Uint8Array {
   const buf = readFileSync(path.join(process.cwd(), "templates", `${plantilla}.docx`));

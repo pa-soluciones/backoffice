@@ -71,6 +71,13 @@
       "when": 1791548560104,
       "tag": "0009_ia_uso",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791552833310,
+      "tag": "0010_adicionales",
+      "breakpoints": true
     }
   ]
 }

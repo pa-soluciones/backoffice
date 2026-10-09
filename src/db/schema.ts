@@ -3,6 +3,7 @@ import {
   bigint,
   bigserial,
   boolean,
+  check,
   date,
   index,
   integer,
@@ -248,13 +249,38 @@ export const presupuestoRevisiones = pgTable(
   (t) => [uniqueIndex().on(t.presupuestoId, t.nro)],
 );
 
+export const adicionales = pgTable(
+  "adicionales",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    presupuestoId: uuid()
+      .notNull()
+      .references(() => presupuestos.id),
+    nro: integer().notNull(),
+    estado: text().$type<"borrador" | "enviado" | "aprobado" | "rechazado" | "cancelado">().notNull().default("borrador"),
+    moneda: text().$type<"ARS" | "USD">().notNull(),
+    validezDias: integer().notNull().default(15),
+    anticipoPct: numeric({ precision: 5, scale: 2 }).notNull().default("0"),
+    mantieneBonificacion: boolean().notNull().default(false),
+    /** Totales congelados al emitir. */
+    totales: jsonb(),
+    emitidoAt: timestamp({ withTimezone: true }),
+    aprobadoAt: timestamp({ withTimezone: true }),
+    motivo: text(),
+    createdBy: uuid().references(() => user.id),
+    createdAt: ts(),
+    updatedAt: ts(),
+  },
+  (t) => [uniqueIndex().on(t.presupuestoId, t.nro)],
+);
+
 export const items = pgTable(
   "items",
   {
     id: uuid().primaryKey().defaultRandom(),
-    revisionId: uuid()
-      .notNull()
-      .references(() => presupuestoRevisiones.id, { onDelete: "cascade" }),
+    /** Ítem de una revisión del presupuesto o de un adicional (exactamente uno). */
+    revisionId: uuid().references(() => presupuestoRevisiones.id, { onDelete: "cascade" }),
+    adicionalId: uuid().references(() => adicionales.id, { onDelete: "cascade" }),
     nro: integer().notNull(),
     tipoServicio: text().notNull(),
     elemento: text(),
@@ -266,7 +292,11 @@ export const items = pgTable(
     descripcion: text().notNull(),
     descripcionManual: boolean().notNull().default(false),
   },
-  (t) => [index().on(t.revisionId, t.nro)],
+  (t) => [
+    index().on(t.revisionId, t.nro),
+    index().on(t.adicionalId, t.nro),
+    check("items_un_duenio", sql`(${t.revisionId} is null) <> (${t.adicionalId} is null)`),
+  ],
 );
 
 export const presupuestoAsignados = pgTable(
@@ -376,12 +406,14 @@ export const documentos = pgTable(
   "documentos",
   {
     id: uuid().primaryKey().defaultRandom(),
-    tipo: text().$type<"presupuesto">().notNull(),
+    tipo: text().$type<"presupuesto" | "adicional">().notNull(),
     presupuestoId: uuid()
       .notNull()
       .references(() => presupuestos.id),
     /** Documento de presupuesto: uno por revisión. */
     revisionId: uuid().references(() => presupuestoRevisiones.id),
+    /** Documento de un trabajo adicional: uno por adicional. */
+    adicionalId: uuid().references(() => adicionales.id),
     estado: text().$type<"borrador" | "emitido">().notNull().default("borrador"),
     /** Bloques de texto editables vigentes: { bloqueId: texto }. */
     bloques: jsonb().$type<Record<string, string>>().notNull(),
@@ -396,7 +428,7 @@ export const documentos = pgTable(
     createdAt: ts(),
     updatedAt: ts(),
   },
-  (t) => [uniqueIndex().on(t.revisionId), index().on(t.presupuestoId)],
+  (t) => [uniqueIndex().on(t.revisionId), uniqueIndex().on(t.adicionalId), index().on(t.presupuestoId)],
 );
 
 export const documentoVersiones = pgTable(

@@ -47,11 +47,11 @@ export const BLOQUES: DefBloque[] = [
   { id: "notas", titulo: "Notas adicionales" },
 ];
 
-const fechaAR = (d: Date) =>
+export const fechaAR = (d: Date) =>
   new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Argentina/Buenos_Aires" }).format(d);
 
 const MONEDA: Record<Moneda, string> = { ARS: "Pesos argentinos (ARS)", USD: "Dólares estadounidenses (USD)" };
-const MONEDA_TEXTO: Record<Moneda, string> = { ARS: "pesos argentinos", USD: "dólares estadounidenses" };
+export const MONEDA_TEXTO: Record<Moneda, string> = { ARS: "pesos argentinos", USD: "dólares estadounidenses" };
 
 export function variables(d: DatosPresupuesto): Record<string, string> {
   return {
@@ -77,7 +77,7 @@ const NOMBRES: Record<TipoServicio, [string, string]> = {
 };
 
 /** "9 perforaciones de Ø 152 mm sobre viga de 29 cm de espesor y 4 cortes…" */
-function resumenItems(items: DatosPresupuesto["items"]) {
+export function resumenItems(items: DatosPresupuesto["items"]) {
   const partes = items.map((i) => {
     const [uno, varios] = NOMBRES[i.tipoServicio] ?? NOMBRES.otro;
     const cant = i.unidad === "u" ? `${i.cantidad} ${i.cantidad === 1 ? uno : varios}` : `${i.cantidad} ${UNIDADES[i.unidad]} de ${uno}`;
