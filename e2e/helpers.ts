@@ -7,6 +7,7 @@ export const sql = postgres(TEST_DB, { onnotice: () => {} });
 /** Deja la base de test sin usuarios ni límites (el admin se recrea al abrir /login). */
 export async function resetearBase() {
   await sql`truncate "user", roles, rate_limit, verification, numeracion_anual, r2_uso_mensual, archivos cascade`;
+  await sql`delete from configuracion where clave = 'firma_empresa'`;
 }
 
 /** Fija el código de verificación de email pendiente a uno conocido. */

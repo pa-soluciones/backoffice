@@ -23,10 +23,9 @@ test("anexos: subir foto y PDF, rechazar archivo disfrazado y eliminar", async (
   await expect(page.getByRole("button", { name: /^Abrir logo\.(png|webp)$/ })).toBeVisible();
   await expect(page.getByText(/^Plano · /).first()).toBeVisible();
 
-  const bajada = page.waitForResponse((r) => r.url().startsWith("http://localhost:9000/") && r.request().method() === "GET");
+  const bajada = page.waitForEvent("download");
   await page.getByRole("button", { name: "Abrir orden.pdf" }).click();
-  expect((await bajada).status()).toBe(200);
-  await page.goBack();
+  expect((await bajada).suggestedFilename()).toBe("orden.pdf");
 
   await page.getByRole("button", { name: "Eliminar orden.pdf" }).click();
   await expect(page.getByRole("button", { name: "Abrir orden.pdf" })).toHaveCount(0);
