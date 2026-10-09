@@ -5,13 +5,14 @@ import { alcanceDe } from "@/domain/permisos";
 import { defaultsPresupuesto, listarNumeracion } from "@/services/configuracion";
 import { getPermisos, requirePermiso } from "@/services/sesion";
 import { verFirma } from "@/services/firma";
-import { FilaNumeracion, FormDefaults, FormFirma } from "./formularios";
+import { configRecordatorios } from "@/services/recordatorios";
+import { FilaNumeracion, FormDefaults, FormFirma, FormRecordatorios } from "./formularios";
 
 export const metadata: Metadata = { title: "Ajustes de presupuestos" };
 
 async function Contenido() {
   const { usuario } = await requirePermiso("configuracion", "leer");
-  const [numeracion, defaults, permisos, firma] = await Promise.all([listarNumeracion(), defaultsPresupuesto(), getPermisos(usuario.id), verFirma().catch(() => null)]);
+  const [numeracion, defaults, permisos, firma, recordatorios] = await Promise.all([listarNumeracion(), defaultsPresupuesto(), getPermisos(usuario.id), verFirma().catch(() => null), configRecordatorios()]);
   const editable = !!alcanceDe(permisos, "configuracion", "escribir");
   return (
     <>
@@ -33,6 +34,11 @@ async function Contenido() {
         <h2 className="text-lg font-semibold">Valores por defecto</h2>
         <p className="text-sm text-muted-foreground">Se aplican a los presupuestos nuevos; cada presupuesto los puede cambiar.</p>
         <FormDefaults d={defaults} editable={editable} />
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Recordatorios</h2>
+        <p className="text-sm text-muted-foreground">Cada cuántos días se avisa (todos los días a las 8). 0 = no avisar.</p>
+        <FormRecordatorios c={recordatorios} editable={editable} />
       </section>
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Firma de los documentos</h2>

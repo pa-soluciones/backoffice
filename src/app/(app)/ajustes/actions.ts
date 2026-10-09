@@ -11,6 +11,7 @@ import { fijarProximoNumero, guardarDefaults } from "@/services/configuracion";
 import { aprobarExcedente } from "@/services/cuota-r2";
 import { guardarFirma, quitarFirma } from "@/services/firma";
 import { guardarCategoria } from "@/services/gastos";
+import { guardarConfigRecordatorios } from "@/services/recordatorios";
 import { actualizarRol, crearRol, eliminarRol } from "@/services/roles";
 import {
   actualizarUsuario,
@@ -220,6 +221,15 @@ export async function accionCategoriaGasto(id: string | null, _: Estado, fd: For
   return ejecutar(async () => {
     await guardarCategoria(id, String(fd.get("nombre") ?? ""), fd.get("activa") !== null || id === null);
     revalidatePath("/ajustes/gastos");
+    return { ok: true };
+  });
+}
+
+export async function accionRecordatorios(_: Estado, fd: FormData): Promise<Estado> {
+  const n = (k: string) => Math.max(0, Math.min(365, Math.round(Number(fd.get(k)) || 0)));
+  return ejecutar(async () => {
+    await guardarConfigRecordatorios({ enEsperaDias: n("enEsperaDias"), anticipoDias: n("anticipoDias"), liquidacionDias: n("liquidacionDias") });
+    revalidatePath("/ajustes/presupuestos");
     return { ok: true };
   });
 }

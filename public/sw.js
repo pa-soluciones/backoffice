@@ -91,3 +91,25 @@ function sinConexion() {
     { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } },
   );
 }
+
+// ── Push (spec/09) ────────────────────────────────────────────────────────────
+self.addEventListener("push", (e) => {
+  const d = e.data ? e.data.json() : {};
+  e.waitUntil(self.registration.showNotification(d.titulo || "PAS Backoffice", { body: d.cuerpo || "", icon: "/icon.svg", badge: "/icon.svg", data: { link: d.link || "/notificaciones" } }));
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.link || "/", self.location.origin).href;
+  e.waitUntil(
+    (async () => {
+      for (const c of await self.clients.matchAll({ type: "window", includeUncontrolled: true })) {
+        if (c.url.startsWith(self.location.origin) && "focus" in c) {
+          await c.navigate(url);
+          return c.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    })(),
+  );
+});

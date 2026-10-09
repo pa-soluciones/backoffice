@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { codigoPresupuesto } from "@/domain/codigos";
 import { useAccion } from "@/hooks/use-accion";
 import type { DefaultsPresupuesto } from "@/services/configuracion";
-import { accionFijarNumero, accionGuardarDefaults, accionGuardarFirma, accionQuitarFirma } from "../actions";
+import { accionFijarNumero, accionGuardarDefaults, accionGuardarFirma, accionQuitarFirma, accionRecordatorios } from "../actions";
 
 function Ok({ ok }: { ok?: boolean }) {
   return ok ? (
@@ -109,5 +109,27 @@ export function FormFirma({ url, editable }: { url: string | null; editable: boo
       <MensajeError error={estado?.error} />
       <Ok ok={estado?.ok} />
     </div>
+  );
+}
+
+/** Cada cuántos días se recuerda (spec/09: "N" configurables). 0 = nunca. */
+export function FormRecordatorios({ c, editable }: { c: { enEsperaDias: number; anticipoDias: number; liquidacionDias: number }; editable: boolean }) {
+  const [estado, onSubmit, pending] = useAccion(accionRecordatorios, undefined);
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <fieldset disabled={!editable} className="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-3">
+        <legend className="sr-only">Recordatorios</legend>
+        <Campo label="En espera sin respuesta (días)" name="enEsperaDias" type="number" min={0} max={365} defaultValue={c.enEsperaDias} required />
+        <Campo label="Anticipo sin cobrar (días)" name="anticipoDias" type="number" min={0} max={365} defaultValue={c.anticipoDias} required />
+        <Campo label="Saldo sin cobrar en liquidación (días)" name="liquidacionDias" type="number" min={0} max={365} defaultValue={c.liquidacionDias} required />
+      </fieldset>
+      <MensajeError error={estado?.error} />
+      <Ok ok={estado?.ok} />
+      {editable && (
+        <Button type="submit" disabled={pending}>
+          Guardar recordatorios
+        </Button>
+      )}
+    </form>
   );
 }
