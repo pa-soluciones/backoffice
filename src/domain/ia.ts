@@ -13,7 +13,7 @@ export const ACCIONES_IA = {
   acortar: "Más corto",
   formal: "Más formal",
   ortografia: "Corregir ortografía",
-  desde_notas: "Redactar desde el pedido y las notas de visita",
+  desde_notas: "Redactar desde los datos (pedido, visita o balance)",
 } as const;
 export type AccionIA = keyof typeof ACCIONES_IA | "instruccion";
 

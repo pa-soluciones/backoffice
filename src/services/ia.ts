@@ -2,9 +2,7 @@ import "server-only";
 import { eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { configuracion, iaUso } from "@/db/schema";
-import { UNIDADES } from "@/domain/items";
 import { ACCIONES_IA, cifrasNuevas, costoUsd, MODELO_DEFAULT, MODELOS, type AccionIA, type Modelo } from "@/domain/ia";
-import { formatearMonto } from "@/domain/montos";
 import { claudeConfigurado, completar, IARechazo } from "@/lib/claude";
 import { auditar } from "./auditoria";
 import { contextoParaIA } from "./documentos";
@@ -68,7 +66,7 @@ const TAREA: Record<Exclude<AccionIA, "instruccion">, string> = {
   acortar: "Hacelo más breve conservando la información importante.",
   formal: "Hacelo más formal.",
   ortografia: "Corregí solo ortografía, puntuación y gramática. No cambies nada más.",
-  desde_notas: "Redactá esta sección a partir del pedido del cliente, los ítems y las notas de la visita técnica.",
+  desde_notas: "Redactá esta sección desde cero a partir de los datos del documento (pedido del cliente, ítems y notas de la visita técnica; o, en un control de perforaciones, el balance por diámetro y las observaciones de los registros).",
 };
 
 /** Propone un texto nuevo para un bloque. No guarda nada. */
@@ -86,20 +84,9 @@ export async function proponerBloque(documentoId: string, bloqueId: string, acci
     throw new ErrorNegocio(`Se alcanzó el tope mensual de IA (USD ${config.limiteMensualUsd}). Un administrador puede subirlo en Ajustes → IA.`);
   }
 
-  const d = ctx.datos;
-  const datos = [
-    `- Cliente: ${d.cliente || "—"}`,
-    `- Obra: ${d.direccion || "—"}`,
-    `- Ítems: ${d.items.map((i) => `${i.cantidad} ${UNIDADES[i.unidad]} · ${i.descripcion}`).join("; ") || "—"}`,
-    `- Total neto: ${formatearMonto(d.totales.neto, d.moneda)}`,
-    `- Validez de la oferta: ${d.validezDias} días · Anticipo: ${d.anticipoPct}%`,
-    ctx.pedido && `- Pedido del cliente: ${ctx.pedido}`,
-    ctx.notasVisita.length > 0 && `- Notas de la visita técnica: ${ctx.notasVisita.join(" / ")}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const datos = ctx.resumen;
   const tarea = accion === "instruccion" ? `Aplicá esta instrucción: ${instruccion!.trim().slice(0, 500)}` : TAREA[accion];
-  const prompt = `Datos del presupuesto:\n${datos}\n\nSección: ${bloque.titulo}\nTexto actual:\n<<<\n${textoActual.slice(0, 10_000)}\n>>>\n\nTarea: ${tarea}`;
+  const prompt = `Datos del documento:\n${datos}\n\nSección: ${bloque.titulo}\nTexto actual:\n<<<\n${textoActual.slice(0, 10_000)}\n>>>\n\nTarea: ${tarea}`;
 
   let r;
   try {

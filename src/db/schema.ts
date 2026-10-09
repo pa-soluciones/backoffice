@@ -450,7 +450,7 @@ export const documentos = pgTable(
   "documentos",
   {
     id: uuid().primaryKey().defaultRandom(),
-    tipo: text().$type<"presupuesto" | "adicional">().notNull(),
+    tipo: text().$type<"presupuesto" | "adicional" | "control">().notNull(),
     presupuestoId: uuid()
       .notNull()
       .references(() => presupuestos.id),
@@ -458,6 +458,9 @@ export const documentos = pgTable(
     revisionId: uuid().references(() => presupuestoRevisiones.id),
     /** Documento de un trabajo adicional: uno por adicional. */
     adicionalId: uuid().references(() => adicionales.id),
+    /** Control de perforaciones: número (-CP1, -CP2…) y período de registros que abarca (null = todo). */
+    nro: integer(),
+    alcance: jsonb().$type<{ desde: string | null; hasta: string | null }>(),
     estado: text().$type<"borrador" | "emitido">().notNull().default("borrador"),
     /** Bloques de texto editables vigentes: { bloqueId: texto }. */
     bloques: jsonb().$type<Record<string, string>>().notNull(),
@@ -472,7 +475,12 @@ export const documentos = pgTable(
     createdAt: ts(),
     updatedAt: ts(),
   },
-  (t) => [uniqueIndex().on(t.revisionId), uniqueIndex().on(t.adicionalId), index().on(t.presupuestoId)],
+  (t) => [
+    uniqueIndex().on(t.revisionId),
+    uniqueIndex().on(t.adicionalId),
+    uniqueIndex("documentos_control_nro").on(t.presupuestoId, t.nro).where(sql`${t.tipo} = 'control'`),
+    index().on(t.presupuestoId),
+  ],
 );
 
 export const documentoVersiones = pgTable(

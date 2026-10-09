@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { adicionales, archivos, clientes, items, obras, presupuestoRevisiones, presupuestos, registroOperarios, registrosCampo, user } from "@/db/schema";
-import { balance, type EstadoRegistro } from "@/domain/balance";
+import { alturaPiso, balance, type EstadoRegistro } from "@/domain/balance";
 import { alcanceDe } from "@/domain/permisos";
 import { confirmarSubida, eliminarArchivo, prepararSubida, urlDescarga } from "./almacenamiento";
 import { auditar } from "./auditoria";
@@ -213,24 +213,68 @@ export async function listarRegistros(presupuestoId: string) {
   }));
 }
 
-/** Balance por diámetro (RF-BAL-01). Sin `ver_montos` no lleva precios. */
-export async function balancePresupuesto(presupuestoId: string) {
-  const { usuario } = await acceso(presupuestoId, "campo", "leer");
-  const verMontos = !!alcanceDe(await getPermisos(usuario.id), "presupuestos", "ver_montos");
+type Periodo = { desde: string | null; hasta: string | null } | null;
+
+const delPeriodo = (presupuestoId: string, periodo: Periodo) =>
+  and(
+    eq(registrosCampo.presupuestoId, presupuestoId),
+    periodo?.desde ? sql`${registrosCampo.fecha} >= ${periodo.desde}` : undefined,
+    periodo?.hasta ? sql`${registrosCampo.fecha} <= ${periodo.hasta}` : undefined,
+  );
+
+async function calcularBalance(presupuestoId: string, periodo: Periodo = null) {
   const [its, ejecutados] = await Promise.all([
     itemsCotizados(presupuestoId),
     db
       .select({ diametroMm: registrosCampo.diametroMm, cantidad: sql<string>`sum(${registrosCampo.cantidad})` })
       .from(registrosCampo)
-      .where(and(eq(registrosCampo.presupuestoId, presupuestoId), eq(registrosCampo.tipoServicio, "perforacion")))
+      .where(and(delPeriodo(presupuestoId, periodo), eq(registrosCampo.tipoServicio, "perforacion")))
       .groupBy(registrosCampo.diametroMm),
   ]);
-  const b = balance(
+  return balance(
     its.filter((i) => i.diametroMm != null).map((i) => ({ diametroMm: i.diametroMm!, cantidad: i.cantidad, precioUnitario: i.precioUnitario })),
     ejecutados.filter((e) => e.diametroMm != null).map((e) => ({ diametroMm: Number(e.diametroMm), cantidad: Number(e.cantidad) })),
   );
+}
+
+/** Balance por diámetro (RF-BAL-01). Sin `ver_montos` no lleva precios. */
+export async function balancePresupuesto(presupuestoId: string) {
+  const { usuario } = await acceso(presupuestoId, "campo", "leer");
+  const verMontos = !!alcanceDe(await getPermisos(usuario.id), "presupuestos", "ver_montos");
+  const b = await calcularBalance(presupuestoId);
   if (!verMontos) for (const f of b.filas) f.precioUnitario = null;
   return { ...b, verMontos };
+}
+
+/** Sin permisos (el documento de control los verifica): registros del período, operadores y balance. */
+export async function datosCampo(presupuestoId: string, periodo: Periodo) {
+  const [regs, ops, b] = await Promise.all([
+    db.select().from(registrosCampo).where(delPeriodo(presupuestoId, periodo)).orderBy(asc(registrosCampo.fecha), asc(registrosCampo.createdAt)),
+    db
+      .selectDistinct({ name: user.name })
+      .from(registroOperarios)
+      .innerJoin(registrosCampo, eq(registrosCampo.id, registroOperarios.registroId))
+      .innerJoin(user, eq(user.id, registroOperarios.userId))
+      .where(delPeriodo(presupuestoId, periodo))
+      .orderBy(asc(user.name)),
+    calcularBalance(presupuestoId, periodo),
+  ]);
+  for (const f of b.filas) f.precioUnitario = null;
+  return {
+    registros: regs
+      .map((r) => ({
+        piso: r.piso,
+        elemento: r.elemento,
+        espesorCm: num(r.espesorCm),
+        diametroMm: num(r.diametroMm),
+        cantidad: Number(r.cantidad),
+        estado: r.estado,
+        observacion: r.observacion,
+      }))
+      .sort((a, c) => alturaPiso(c.piso) - alturaPiso(a.piso)), // estable: dentro del piso, por fecha
+    operadores: ops.map((o) => o.name),
+    balance: b,
+  };
 }
 
 // ── Fotos ─────────────────────────────────────────────────────────────────────

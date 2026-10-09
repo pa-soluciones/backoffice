@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, max, ne } from "drizzle-orm";
 import { db } from "@/db";
 import {
   adicionales,
@@ -15,16 +15,19 @@ import {
   visitas,
 } from "@/db/schema";
 import * as docAdicional from "@/documents/adicional";
+import * as docControl from "@/documents/control";
 import { BLOQUES, armar, bloquesPorDefecto, type DatosPresupuesto } from "@/documents/presupuesto";
 import { renderDocx } from "@/documents/render";
-import type { TipoServicio, Unidad } from "@/domain/items";
-import { calcularTotales, type Moneda } from "@/domain/montos";
+import { rangoPisos } from "@/domain/balance";
+import { UNIDADES, type TipoServicio, type Unidad } from "@/domain/items";
+import { calcularTotales, formatearMonto, type Moneda } from "@/domain/montos";
 import { alcanceDe } from "@/domain/permisos";
 import { esFinal, type Estado } from "@/domain/workflow";
 import { docxToPdf } from "@/lib/pdf";
 import { guardarArchivo, leerArchivo, urlDescarga } from "./almacenamiento";
 import { firmaParaDocumento } from "./firma";
 import { auditar } from "./auditoria";
+import { datosCampo } from "./campo";
 import { ErrorNegocio } from "./errores";
 import { acceso, codigo } from "./presupuesto-acceso";
 import { getPermisos } from "./sesion";
@@ -73,7 +76,7 @@ async function datosPresupuesto(presupuestoId: string, revisionId: string): Prom
   };
 }
 
-const BLOQUES_POR_TIPO = { presupuesto: BLOQUES, adicional: docAdicional.BLOQUES } as const;
+const BLOQUES_POR_TIPO = { presupuesto: BLOQUES, adicional: docAdicional.BLOQUES, control: docControl.BLOQUES } as const;
 
 /** Datos bloqueados del documento de un trabajo adicional. */
 async function datosAdicional(adicionalId: string): Promise<docAdicional.DatosAdicional> {
@@ -122,9 +125,9 @@ async function datosAdicional(adicionalId: string): Promise<docAdicional.DatosAd
 }
 
 /** El documento trae precios: además de leer el presupuesto, hay que poder ver montos. */
-async function accesoDocumento(presupuestoId: string, accion: "leer" | "escribir") {
+async function accesoDocumento(presupuestoId: string, accion: "leer" | "escribir", conMontos = true) {
   const r = await acceso(presupuestoId, "documentos", accion);
-  if (!alcanceDe(await getPermisos(r.usuario.id), "presupuestos", "ver_montos")) {
+  if (conMontos && !alcanceDe(await getPermisos(r.usuario.id), "presupuestos", "ver_montos")) {
     throw new ErrorNegocio("El documento incluye precios: necesitás el permiso de ver montos.");
   }
   return r;
@@ -184,7 +187,7 @@ export async function documentoAdicional(adicionalId: string) {
 export async function versiones(documentoId: string) {
   const [doc] = await db.select().from(documentos).where(eq(documentos.id, documentoId));
   if (!doc) throw new ErrorNegocio("El documento no existe.");
-  await accesoDocumento(doc.presupuestoId, "leer");
+  await accesoDocumento(doc.presupuestoId, "leer", doc.tipo !== "control");
   return db
     .select({ nro: documentoVersiones.nro, origen: documentoVersiones.origen, at: documentoVersiones.at, usuario: user.name, bloques: documentoVersiones.bloques })
     .from(documentoVersiones)
@@ -197,7 +200,7 @@ export async function versiones(documentoId: string) {
 export async function guardarBloques(documentoId: string, bloques: Record<string, string>, origen: "usuario" | "ia" | "mcp" = "usuario") {
   const [doc] = await db.select().from(documentos).where(eq(documentos.id, documentoId));
   if (!doc) throw new ErrorNegocio("El documento no existe.");
-  const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir");
+  const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir", doc.tipo !== "control");
   if (doc.estado !== "borrador") throw new ErrorNegocio("El documento ya fue emitido: creá una nueva revisión para modificarlo.");
   const defs = BLOQUES_POR_TIPO[doc.tipo];
   const limpios = Object.fromEntries(defs.map((b) => [b.id, (bloques[b.id] ?? doc.bloques[b.id] ?? "").slice(0, 10_000)]));
@@ -219,13 +222,14 @@ export async function restaurarVersion(documentoId: string, nro: number) {
   return v.bloques;
 }
 
-const NOMBRE_TIPO = { presupuesto: "Presupuesto", adicional: "Adicional" } as const;
+const NOMBRE_TIPO = { presupuesto: "Presupuesto", adicional: "Adicional", control: "Control de perforaciones" } as const;
 const nombreArchivo = (tipo: keyof typeof NOMBRE_TIPO, cod: string, cliente: string, ext: string) =>
   `PAS - ${NOMBRE_TIPO[tipo]} ${cod.replace(/\//g, "-")} - ${cliente.replace(/[\\/:*?"<>|]/g, "")}.${ext}`;
 
 /** DOCX + PDF → R2 y documento emitido. Si Gotenberg falla, el PDF queda pendiente. */
 async function emitirDocumento(doc: typeof documentos.$inferSelect, armado: { codigo: string; cliente: string }, fecha: Date, usuarioId: string) {
-  const docx = renderDocx(doc.tipo, armado, await firmaParaDocumento());
+  // El control se firma en papel (operador e inspección): sin firma de la empresa.
+  const docx = renderDocx(doc.tipo, armado, doc.tipo === "control" ? null : await firmaParaDocumento());
   const meta = { entidadTipo: "documento", entidadId: doc.id, categoria: doc.tipo, createdBy: usuarioId };
   const docxId = await guardarArchivo(docx, {
     ...meta,
@@ -268,7 +272,7 @@ export async function generarArchivos(presupuestoId: string, revisionId: string,
 export async function descargar(documentoId: string, formato: "docx" | "pdf") {
   const [doc] = await db.select().from(documentos).where(eq(documentos.id, documentoId));
   if (!doc || doc.estado !== "emitido" || !doc.docxArchivoId) throw new ErrorNegocio("El documento no está emitido.");
-  const { usuario } = await accesoDocumento(doc.presupuestoId, "leer");
+  const { usuario } = await accesoDocumento(doc.presupuestoId, "leer", doc.tipo !== "control");
   if (formato === "docx") return urlDescarga(doc.docxArchivoId);
   if (!doc.pdfArchivoId) {
     const docx = await leerArchivo(doc.docxArchivoId); // el emitido, con la firma de ese momento
@@ -299,19 +303,127 @@ export async function documentosEmitidos(presupuestoId: string) {
 export async function contextoParaIA(documentoId: string) {
   const [doc] = await db.select().from(documentos).where(eq(documentos.id, documentoId));
   if (!doc) throw new ErrorNegocio("El documento no existe.");
-  const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir");
+  const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir", doc.tipo !== "control");
   if (doc.estado !== "borrador") throw new ErrorNegocio("El documento ya fue emitido.");
+  return { usuario, doc, bloquesDef: BLOQUES_POR_TIPO[doc.tipo], resumen: await resumenParaIA(doc) };
+}
+
+/** Datos del documento en texto, para el pedido a la IA. */
+async function resumenParaIA(doc: typeof documentos.$inferSelect) {
+  if (doc.tipo === "control") {
+    const d = await datosControl(doc);
+    return [
+      `- Cliente: ${d.cliente || "—"}`,
+      `- Obra: ${d.direccion || "—"}`,
+      `- Operarios: ${d.operadores.join(", ") || "—"}`,
+      `- Registros: ${d.registros.length} (${rangoPisos(d.registros.map((r) => r.piso)) || "sin pisos"})`,
+      ...d.balance.filas.map((f) => `- Ø ${f.diametroMm} mm: cotizadas ${f.cotizadas}, ejecutadas ${f.ejecutadas}, diferencia ${f.diferencia > 0 ? "+" : ""}${f.diferencia}`),
+      `- Totales: cotizadas ${d.balance.totales.cotizadas}, ejecutadas ${d.balance.totales.ejecutadas}`,
+      ...d.registros.filter((r) => r.observacion).map((r) => `- Observación piso ${r.piso}: ${r.observacion}`),
+    ].join("\n");
+  }
+  const d = doc.tipo === "adicional" ? await datosAdicional(doc.adicionalId!) : await datosPresupuesto(doc.presupuestoId, doc.revisionId!);
   const [p] = await db.select({ pedido: presupuestos.pedido }).from(presupuestos).where(eq(presupuestos.id, doc.presupuestoId));
-  const notas = await db
-    .select({ previas: visitas.notasPrevias, resultado: visitas.notasResultado })
-    .from(visitas)
-    .where(eq(visitas.presupuestoId, doc.presupuestoId));
+  const notas = (await db.select({ previas: visitas.notasPrevias, resultado: visitas.notasResultado }).from(visitas).where(eq(visitas.presupuestoId, doc.presupuestoId)))
+    .flatMap((n) => [n.previas, n.resultado])
+    .filter((x): x is string => !!x?.trim());
+  return [
+    `- Cliente: ${d.cliente || "—"}`,
+    `- Obra: ${d.direccion || "—"}`,
+    `- Ítems: ${d.items.map((i) => `${i.cantidad} ${UNIDADES[i.unidad]} · ${i.descripcion}`).join("; ") || "—"}`,
+    `- Total neto: ${formatearMonto(d.totales.neto, d.moneda)}`,
+    `- Validez de la oferta: ${d.validezDias} días · Anticipo: ${d.anticipoPct}%`,
+    p?.pedido && `- Pedido del cliente: ${p.pedido}`,
+    notas.length > 0 && `- Notas de la visita técnica: ${notas.join(" / ")}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+// ── Control de perforaciones (spec/06 §3.5) ───────────────────────────────────
+
+async function datosControl(doc: Pick<typeof documentos.$inferSelect, "presupuestoId" | "nro" | "alcance" | "emitidoAt">): Promise<docControl.DatosControl> {
+  const [p] = await db.select().from(presupuestos).where(eq(presupuestos.id, doc.presupuestoId));
+  const [cli] = p.clienteId ? await db.select({ n: clientes.razonSocial }).from(clientes).where(eq(clientes.id, p.clienteId)) : [];
+  const [obra] = p.obraId
+    ? await db.select({ direccion: obras.direccion, director: directoresObra.nombre }).from(obras).leftJoin(directoresObra, eq(directoresObra.id, obras.directorId)).where(eq(obras.id, p.obraId))
+    : [];
   return {
-    usuario,
-    doc,
-    datos: doc.tipo === "adicional" ? await datosAdicional(doc.adicionalId!) : await datosPresupuesto(doc.presupuestoId, doc.revisionId!),
-    bloquesDef: BLOQUES_POR_TIPO[doc.tipo],
-    pedido: p?.pedido ?? null,
-    notasVisita: notas.flatMap((n) => [n.previas, n.resultado]).filter((x): x is string => !!x?.trim()),
+    codigo: `${codigo(p) ?? "Sin numerar"}-CP${doc.nro}`,
+    fecha: doc.emitidoAt ?? new Date(),
+    cliente: cli?.n ?? "",
+    director: obra?.director ?? null,
+    direccion: obra?.direccion ?? "",
+    ...(await datosCampo(doc.presupuestoId, doc.alcance ?? null)),
   };
+}
+
+async function controlDe(documentoId: string) {
+  const [doc] = await db.select().from(documentos).where(and(eq(documentos.id, documentoId), eq(documentos.tipo, "control")));
+  if (!doc) throw new ErrorNegocio("El documento no existe.");
+  return doc;
+}
+
+/** Controles del presupuesto (para listarlos en Campo). */
+export async function listarControles(presupuestoId: string) {
+  await accesoDocumento(presupuestoId, "leer", false);
+  return db
+    .select({ id: documentos.id, nro: documentos.nro, estado: documentos.estado, emitidoAt: documentos.emitidoAt, pdfEstado: documentos.pdfEstado, alcance: documentos.alcance })
+    .from(documentos)
+    .where(and(eq(documentos.presupuestoId, presupuestoId), eq(documentos.tipo, "control")))
+    .orderBy(desc(documentos.nro));
+}
+
+/** Nuevo control -CPn en borrador (o el borrador que ya exista). */
+export async function crearControl(presupuestoId: string) {
+  const { usuario } = await accesoDocumento(presupuestoId, "escribir", false);
+  const [p] = await db.select({ estado: presupuestos.estado }).from(presupuestos).where(eq(presupuestos.id, presupuestoId));
+  if (!p || !["en_progreso", "pendiente_liquidacion", "terminado"].includes(p.estado)) throw new ErrorNegocio("El control se hace sobre un presupuesto en curso o terminado.");
+  const [borrador] = await db
+    .select({ id: documentos.id })
+    .from(documentos)
+    .where(and(eq(documentos.presupuestoId, presupuestoId), eq(documentos.tipo, "control"), eq(documentos.estado, "borrador")));
+  if (borrador) return borrador.id;
+  const [{ ultimo }] = await db
+    .select({ ultimo: max(documentos.nro) })
+    .from(documentos)
+    .where(and(eq(documentos.presupuestoId, presupuestoId), eq(documentos.tipo, "control")));
+  const nro = (ultimo ?? 0) + 1;
+  const datos = await datosControl({ presupuestoId, nro, alcance: null, emitidoAt: null });
+  const bloques = docControl.bloquesPorDefecto(datos);
+  // El índice único (presupuesto, nro) frena un doble clic simultáneo.
+  const [doc] = await db.insert(documentos).values({ tipo: "control", presupuestoId, nro, bloques }).returning();
+  await db.insert(documentoVersiones).values({ documentoId: doc.id, nro: 1, bloques, origen: "sistema", userId: usuario.id });
+  await auditar({ actorUserId: usuario.id, action: "documento.crear_control", entityType: "presupuesto", entityId: presupuestoId, entityLabel: datos.codigo });
+  return doc.id;
+}
+
+export async function documentoControl(documentoId: string) {
+  const doc = await controlDe(documentoId);
+  await accesoDocumento(doc.presupuestoId, "leer", false);
+  const datos = await datosControl(doc);
+  return { doc, datos, editable: doc.estado === "borrador", defaults: docControl.bloquesPorDefecto(datos) };
+}
+
+/** Período de registros que abarca el control (sin fechas = todo lo ejecutado). */
+export async function fijarAlcanceControl(documentoId: string, desde: string | null, hasta: string | null) {
+  const doc = await controlDe(documentoId);
+  const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir", false);
+  if (doc.estado !== "borrador") throw new ErrorNegocio("El documento ya fue emitido.");
+  if (desde && hasta && desde > hasta) throw new ErrorNegocio("La fecha desde no puede ser posterior a la fecha hasta.");
+  const alcance = desde || hasta ? { desde, hasta } : null;
+  await db.update(documentos).set({ alcance, updatedAt: new Date() }).where(eq(documentos.id, documentoId));
+  await auditar({ actorUserId: usuario.id, action: "documento.alcance", entityType: "documento", entityId: documentoId, diff: { alcance } });
+}
+
+export async function emitirControl(documentoId: string) {
+  const doc = await controlDe(documentoId);
+  const { usuario } = await acceso(doc.presupuestoId, "documentos", "emitir");
+  if (doc.estado !== "borrador") throw new ErrorNegocio("El documento ya fue emitido.");
+  const fecha = new Date();
+  const datos = { ...(await datosControl(doc)), fecha };
+  if (datos.registros.length === 0) throw new ErrorNegocio("No hay registros de campo en el período elegido.");
+  await emitirDocumento(doc, docControl.armar(datos, doc.bloques), fecha, usuario.id);
+  await auditar({ actorUserId: usuario.id, action: "documento.emitir", entityType: "presupuesto", entityId: doc.presupuestoId, entityLabel: datos.codigo, diff: { documentoId, registros: datos.registros.length } });
+  return datos.codigo;
 }
