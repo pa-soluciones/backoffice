@@ -1,0 +1,137 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-outfit);
+  --font-heading: var(--font-poppins);
+  --color-primary-text: var(--primary-text);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* Marca PAS (spec/02-diseno-ui.md) */
+  --pas-orange: #f49600;
+  --pas-gray: #5f5e5e;
+  --pas-dark: #1f2123;
+  --pas-light: #f2f4f6;
+
+  --background: var(--pas-light);
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+  --primary: var(--pas-orange);
+  --primary-foreground: var(--pas-dark);
+  --primary-text: #9a5e00; /* naranja para TEXTO sobre fondo claro (AA) */
+  --secondary: #e7e9ec;
+  --secondary-foreground: #1a1a1a;
+  --muted: #e7e9ec;
+  --muted-foreground: var(--pas-gray); /* #848484 no llega a AA sobre fondo claro */
+  --accent: #fdf0db;
+  --accent-foreground: #1a1a1a;
+  --destructive: #dc2626;
+  --success: #15803d;
+  --warning: #b45309;
+  --info: #2563eb;
+  --border: #e1e1e1;
+  --input: #d4d6d9;
+  --ring: var(--pas-orange);
+  --chart-1: var(--pas-orange);
+  --chart-2: var(--pas-gray);
+  --chart-3: #2563eb;
+  --chart-4: #15803d;
+  --chart-5: #7c3aed;
+  --radius: 0.75rem; /* 12px, igual que la web */
+  --sidebar: var(--pas-dark);
+  --sidebar-foreground: #f9f9f9;
+  --sidebar-primary: var(--pas-orange);
+  --sidebar-primary-foreground: var(--pas-dark);
+  --sidebar-accent: #2a2d30;
+  --sidebar-accent-foreground: #f9f9f9;
+  --sidebar-border: #3a3d40;
+  --sidebar-ring: var(--pas-orange);
+}
+
+.dark {
+  --background: var(--pas-dark);
+  --foreground: #f9f9f9;
+  --card: #2a2d30;
+  --card-foreground: #f9f9f9;
+  --popover: #2a2d30;
+  --popover-foreground: #f9f9f9;
+  --primary-text: var(--pas-orange);
+  --secondary: #34373a;
+  --secondary-foreground: #f9f9f9;
+  --muted: #34373a;
+  --muted-foreground: #b5b5b5;
+  --accent: #3a3020;
+  --accent-foreground: #f9f9f9;
+  --destructive: #f87171;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #60a5fa;
+  --border: #3a3d40;
+  --input: #4a4d50;
+  --sidebar: #17191a;
+  --sidebar-accent: #2a2d30;
+  --sidebar-border: #2a2d30;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  h1, h2, h3 {
+    @apply font-heading;
+  }
+}
