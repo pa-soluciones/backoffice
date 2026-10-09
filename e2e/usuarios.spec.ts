@@ -28,7 +28,7 @@ test("admin gestiona usuarios y roles; operario sin acceso a ajustes", async ({ 
 
   // El admin no puede desactivarse a sí mismo.
   await page.goto("/ajustes/usuarios");
-  await page.getByRole("link", { name: /Administrador/ }).click();
+  await page.getByRole("main").getByRole("link", { name: /Administrador/ }).click();
   await page.getByRole("button", { name: "Desactivar" }).click();
   await expect(page.getByText("No podés desactivar tu propio usuario.")).toBeVisible();
 

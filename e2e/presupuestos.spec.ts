@@ -56,8 +56,8 @@ test("presupuesto: numeración, ítems, emisión, estados, revisión y visita", 
   await page.getByLabel("Fecha y hora").fill(`${ymd}T10:30`);
   await page.getByLabel("Dirección").fill("Gurruchaga 980");
   await page.getByRole("button", { name: "Agendar", exact: true }).click();
-  await expect(page.getByText("Agendada")).toBeVisible();
-  await page.goto("/agenda");
+  await expect(page.getByText("Agendada", { exact: true })).toBeVisible(); // exacto: "todavía no está agendada" también coincide
+  await page.goto(`/agenda?semana=${ymd}`); // mañana puede caer en la semana siguiente
   await expect(page.getByText(/Visita técnica · sin numerar · Arq\. Lucía/)).toBeVisible();
 
   // Ítems del primero: 9 × $168.000 = $1.512.000 (template).
@@ -79,7 +79,7 @@ test("presupuesto: numeración, ítems, emisión, estados, revisión y visita", 
 
   // Emitir → En espera → En progreso (con fecha de confirmación).
   await page.getByRole("button", { name: "Emitir presupuesto" }).click();
-  await expect(page.getByText(`Emitido ${codigo}.`)).toBeVisible();
+  await expect(page.getByText(`Emitido ${codigo}.`)).toBeVisible({ timeout: 30_000 }); // genera DOCX + PDF
   await page.getByLabel("Pasar a").selectOption({ label: "En espera" });
   await page.getByRole("button", { name: "Cambiar estado" }).click();
   await expect(page.getByText("En espera").first()).toBeVisible();
