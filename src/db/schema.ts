@@ -329,6 +329,49 @@ export const estadoHistorial = pgTable(
   (t) => [index().on(t.presupuestoId, t.at)],
 );
 
+// ── Cobros (spec/08 §3) ───────────────────────────────────────────────────────
+
+export const cobrosEsperados = pgTable(
+  "cobros_esperados",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    presupuestoId: uuid()
+      .notNull()
+      .references(() => presupuestos.id),
+    adicionalId: uuid().references(() => adicionales.id),
+    concepto: text().$type<"anticipo" | "saldo" | "adicional" | "otro">().notNull(),
+    /** "Anticipo del 40% sobre el presupuesto original (2026/0105)". */
+    descripcion: text().notNull(),
+    importe: monto().notNull(),
+    moneda: text().$type<"ARS" | "USD">().notNull(),
+    createdAt: ts(),
+    updatedAt: ts(),
+  },
+  (t) => [index().on(t.presupuestoId)],
+);
+
+export const cobros = pgTable(
+  "cobros",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    cobroEsperadoId: uuid()
+      .notNull()
+      .references(() => cobrosEsperados.id),
+    fecha: date().notNull(),
+    importe: monto().notNull(),
+    monedaRecibida: text().$type<"ARS" | "USD">().notNull(),
+    /** Pesos por dólar, cuando se cobra en otra moneda. */
+    tipoCambio: numeric({ precision: 14, scale: 4 }),
+    /** En la moneda del presupuesto. */
+    importeImputado: monto().notNull(),
+    medio: text().notNull(),
+    referencia: text(),
+    createdBy: uuid().references(() => user.id),
+    createdAt: ts(),
+  },
+  (t) => [index().on(t.cobroEsperadoId)],
+);
+
 // ── Campo (spec/07) ───────────────────────────────────────────────────────────
 
 export const registrosCampo = pgTable(

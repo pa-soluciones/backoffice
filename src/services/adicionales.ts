@@ -7,6 +7,7 @@ import { calcularTotales, type Moneda, type Totales } from "@/domain/montos";
 import { ESTADOS_ADICIONAL, TRANSICIONES_ADICIONAL, type EstadoAdicional } from "@/domain/adicionales";
 import { alcanceDe } from "@/domain/permisos";
 import { auditar } from "./auditoria";
+import { generarCobrosAdicional } from "./cobros";
 import { generarArchivosAdicional } from "./documentos";
 import { ErrorNegocio } from "./errores";
 import { acceso, codigo } from "./presupuesto-acceso";
@@ -153,10 +154,13 @@ export async function cambiarEstadoAdicional(id: string, hasta: EstadoAdicional,
     throw new ErrorNegocio(`No se puede pasar de ${ESTADOS_ADICIONAL[a.estado as EstadoAdicional]} a ${ESTADOS_ADICIONAL[hasta]}.`);
   }
   if ((hasta === "rechazado" || hasta === "cancelado") && !motivo?.trim()) throw new ErrorNegocio("Indicá el motivo.");
-  await db
-    .update(adicionales)
-    .set({ estado: hasta, motivo: motivo?.trim() || null, ...(hasta === "aprobado" ? { aprobadoAt: new Date() } : {}), updatedAt: new Date() })
-    .where(eq(adicionales.id, id));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(adicionales)
+      .set({ estado: hasta, motivo: motivo?.trim() || null, ...(hasta === "aprobado" ? { aprobadoAt: new Date() } : {}), updatedAt: new Date() })
+      .where(eq(adicionales.id, id));
+    if (hasta === "aprobado") await generarCobrosAdicional(tx, id);
+  });
   await auditar({
     actorUserId: usuario.id,
     action: "adicional.estado",

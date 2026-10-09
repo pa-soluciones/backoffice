@@ -19,6 +19,7 @@ import { calcularTotales, type Bonificacion, type Moneda, type Totales } from "@
 import { alcanceDe } from "@/domain/permisos";
 import { esFinal, validarTransicion, type Estado } from "@/domain/workflow";
 import { auditar } from "./auditoria";
+import { generarAnticipo, generarSaldo, situacionDePagos } from "./cobros";
 import { defaultsPresupuesto, siguienteNumero } from "./configuracion";
 import { generarArchivos } from "./documentos";
 import { ErrorNegocio } from "./errores";
@@ -453,8 +454,7 @@ export async function cambiarEstado(id: string, hasta: Estado, datos: { motivo?:
     tieneEmitida: emitidas.length > 0,
     fechaConfirmacion: datos.fechaConfirmacion,
     motivo: datos.motivo,
-    // ponytail: el saldo real llega con cobros (F6); hasta entonces cerrar exige motivo.
-    saldoPendiente: hasta === "terminado" ? 1 : 0,
+    saldoPendiente: hasta === "terminado" ? (await situacionDePagos(id)).porCobrar : 0,
   });
   if (error) throw new ErrorNegocio(error);
 
@@ -470,6 +470,9 @@ export async function cambiarEstado(id: string, hasta: Estado, datos: { motivo?:
       })
       .where(eq(presupuestos.id, id));
     await tx.insert(estadoHistorial).values({ presupuestoId: id, desde, hasta, motivo: datos.motivo ?? (datos.fechaConfirmacion ? `Confirmado el ${datos.fechaConfirmacion}` : null), userId: usuario.id });
+    // Cobros esperados (spec/08 RF-COB-01).
+    if (hasta === "en_progreso") await generarAnticipo(tx, id);
+    if (hasta === "pendiente_liquidacion") await generarSaldo(tx, id);
   });
   await auditar({ actorUserId: usuario.id, action: "presupuesto.estado", entityType: "presupuesto", entityId: id, entityLabel: codigo(p) ?? undefined, diff: { estado: [desde, hasta], ...datos } });
 }
