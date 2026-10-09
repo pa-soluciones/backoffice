@@ -102,7 +102,7 @@ pas-backoffice/
 | Producción | Vercel (main) | Neon `main` |
 
 Variables de entorno (todas en Vercel; nunca en el repo):
-`DATABASE_URL`, `BETTER_AUTH_SECRET`, `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `RESEND_API_KEY`, `EMAIL_FROM`, `GOTENBERG_URL`, `GOTENBERG_TOKEN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `CRON_SECRET`, `ENCRYPTION_KEY` (AES-256-GCM para API keys de IA guardadas en DB).
+`DATABASE_URL`, `BETTER_AUTH_SECRET`, `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `RESEND_API_KEY`, `EMAIL_FROM`, `GOTENBERG_URL`, `GOTENBERG_USER`, `GOTENBERG_PASSWORD`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `CRON_SECRET`, `ENCRYPTION_KEY` (AES-256-GCM para API keys de IA guardadas en DB).
 
 ## 6. Límites del free tier y mitigación
 
@@ -117,7 +117,7 @@ Variables de entorno (todas en Vercel; nunca en el repo):
 ## 7. Generación de PDF — detalle
 
 1. El servidor arma el DOCX con docxtemplater.
-2. Lo envía a `POST {GOTENBERG_URL}/forms/libreoffice/convert` con un header de autenticación (Cloud Run con IAM o token compartido).
+2. Lo envía a `POST {GOTENBERG_URL}/forms/libreoffice/convert` con autenticación básica (`GOTENBERG_USER` / `GOTENBERG_PASSWORD`).
 3. Guarda DOCX y PDF en R2.
 4. Si Gotenberg falla o tarda (cold start), el documento queda emitido con DOCX y el PDF en estado `pendiente`. Se reintenta en el próximo intento de descarga y en el cron diario.
 
