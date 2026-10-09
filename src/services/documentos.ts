@@ -15,6 +15,7 @@ import {
   visitas,
 } from "@/db/schema";
 import * as docAdicional from "@/documents/adicional";
+import * as docCertificacion from "@/documents/certificacion";
 import * as docControl from "@/documents/control";
 import { BLOQUES, armar, bloquesPorDefecto, type DatosPresupuesto } from "@/documents/presupuesto";
 import { renderDocx } from "@/documents/render";
@@ -28,6 +29,7 @@ import { guardarArchivo, leerArchivo, urlDescarga } from "./almacenamiento";
 import { firmaParaDocumento } from "./firma";
 import { auditar } from "./auditoria";
 import { datosCampo } from "./campo";
+import { datosCertificacion } from "./certificaciones";
 import { ErrorNegocio } from "./errores";
 import { acceso, codigo } from "./presupuesto-acceso";
 import { getPermisos } from "./sesion";
@@ -76,7 +78,7 @@ async function datosPresupuesto(presupuestoId: string, revisionId: string): Prom
   };
 }
 
-const BLOQUES_POR_TIPO = { presupuesto: BLOQUES, adicional: docAdicional.BLOQUES, control: docControl.BLOQUES } as const;
+const BLOQUES_POR_TIPO = { presupuesto: BLOQUES, adicional: docAdicional.BLOQUES, control: docControl.BLOQUES, certificacion: docCertificacion.BLOQUES } as const;
 
 /** Datos bloqueados del documento de un trabajo adicional. */
 async function datosAdicional(adicionalId: string): Promise<docAdicional.DatosAdicional> {
@@ -125,7 +127,7 @@ async function datosAdicional(adicionalId: string): Promise<docAdicional.DatosAd
 }
 
 /** El documento trae precios: además de leer el presupuesto, hay que poder ver montos. */
-async function accesoDocumento(presupuestoId: string, accion: "leer" | "escribir", conMontos = true) {
+export async function accesoDocumento(presupuestoId: string, accion: "leer" | "escribir", conMontos = true) {
   const r = await acceso(presupuestoId, "documentos", accion);
   if (conMontos && !alcanceDe(await getPermisos(r.usuario.id), "presupuestos", "ver_montos")) {
     throw new ErrorNegocio("El documento incluye precios: necesitás el permiso de ver montos.");
@@ -222,12 +224,12 @@ export async function restaurarVersion(documentoId: string, nro: number) {
   return v.bloques;
 }
 
-const NOMBRE_TIPO = { presupuesto: "Presupuesto", adicional: "Adicional", control: "Control de perforaciones" } as const;
+const NOMBRE_TIPO = { presupuesto: "Presupuesto", adicional: "Adicional", control: "Control de perforaciones", certificacion: "Certificación" } as const;
 const nombreArchivo = (tipo: keyof typeof NOMBRE_TIPO, cod: string, cliente: string, ext: string) =>
   `PAS - ${NOMBRE_TIPO[tipo]} ${cod.replace(/\//g, "-")} - ${cliente.replace(/[\\/:*?"<>|]/g, "")}.${ext}`;
 
 /** DOCX + PDF → R2 y documento emitido. Si Gotenberg falla, el PDF queda pendiente. */
-async function emitirDocumento(doc: typeof documentos.$inferSelect, armado: { codigo: string; cliente: string }, fecha: Date, usuarioId: string) {
+export async function emitirDocumento(doc: typeof documentos.$inferSelect, armado: { codigo: string; cliente: string }, fecha: Date, usuarioId: string) {
   // El control se firma en papel (operador e inspección): sin firma de la empresa.
   const docx = renderDocx(doc.tipo, armado, doc.tipo === "control" ? null : await firmaParaDocumento());
   const meta = { entidadTipo: "documento", entidadId: doc.id, categoria: doc.tipo, createdBy: usuarioId };
@@ -310,6 +312,19 @@ export async function contextoParaIA(documentoId: string) {
 
 /** Datos del documento en texto, para el pedido a la IA. */
 async function resumenParaIA(doc: typeof documentos.$inferSelect) {
+  if (doc.tipo === "certificacion") {
+    const d = await datosCertificacion(doc);
+    const t = docCertificacion.totales(d);
+    return [
+      `- Cliente: ${d.cliente || "—"}`,
+      `- Obra: ${d.direccion || "—"}`,
+      `- Certificación ${d.tipo} (${d.alcance === "obra" ? "de obra" : "de trabajo adicional"}) del presupuesto ${d.presupuestoCodigo}`,
+      `- Trabajos certificados: ${[...d.originales, ...d.adicionales.flatMap((a) => a.lineas)].map((l) => `${l.cantidad} · ${l.descripcion}`).join("; ") || "—"}`,
+      `- Adicionales: ${d.adicionales.map((a) => a.codigo).join(", ") || "ninguno"}`,
+      `- Total certificado: ${formatearMonto(t.total, d.moneda)} · Saldo por abonar: ${formatearMonto(t.pendiente, d.moneda)}`,
+      ...d.pagos.map((p) => `- ${p.concepto}: ${p.estado} (${formatearMonto(p.importe, d.moneda)})`),
+    ].join("\n");
+  }
   if (doc.tipo === "control") {
     const d = await datosControl(doc);
     return [

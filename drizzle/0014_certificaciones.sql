@@ -1,0 +1,1 @@
+ALTER TABLE "documentos" ADD COLUMN "parametros" jsonb;

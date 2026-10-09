@@ -321,3 +321,13 @@ export async function urlsFotos(presupuestoId: string, ids: string[]) {
   );
   return Object.fromEntries(await Promise.all(ids.filter((id) => propias.has(id)).map(async (id) => [id, await urlDescarga(id)] as const)));
 }
+
+/** Sin permisos (certificaciones): cantidad ejecutada por ítem vinculado y si hay registros. */
+export async function ejecutadoPorItem(presupuestoId: string) {
+  const filas = await db
+    .select({ itemId: registrosCampo.itemId, cantidad: sql<string>`sum(${registrosCampo.cantidad})` })
+    .from(registrosCampo)
+    .where(eq(registrosCampo.presupuestoId, presupuestoId))
+    .groupBy(registrosCampo.itemId);
+  return { hayRegistros: filas.length > 0, porItem: Object.fromEntries(filas.filter((f) => f.itemId).map((f) => [f.itemId!, Number(f.cantidad)])) as Record<string, number> };
+}

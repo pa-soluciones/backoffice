@@ -489,11 +489,22 @@ export const r2UsoMensual = pgTable("r2_uso_mensual", {
 
 // ── Documentos (spec/06) ──────────────────────────────────────────────────────
 
+export type ParametrosCertificacion = {
+  adicionalId: string | null;
+  tipo: "parcial" | "final";
+  /** itemId → cantidad a certificar (lo que no está usa el valor por defecto). */
+  cantidades: Record<string, number>;
+  /** Certificación de obra: adicionales aprobados incluidos (null = todos). */
+  adicionales: string[] | null;
+  /** Al emitir: total certificado (para el acumulado de las parciales). */
+  total?: number;
+};
+
 export const documentos = pgTable(
   "documentos",
   {
     id: uuid().primaryKey().defaultRandom(),
-    tipo: text().$type<"presupuesto" | "adicional" | "control">().notNull(),
+    tipo: text().$type<"presupuesto" | "adicional" | "control" | "certificacion">().notNull(),
     presupuestoId: uuid()
       .notNull()
       .references(() => presupuestos.id),
@@ -504,6 +515,8 @@ export const documentos = pgTable(
     /** Control de perforaciones: número (-CP1, -CP2…) y período de registros que abarca (null = todo). */
     nro: integer(),
     alcance: jsonb().$type<{ desde: string | null; hasta: string | null }>(),
+    /** Certificación: de obra o de un adicional, parcial/final, cantidades por ítem y total certificado al emitir. */
+    parametros: jsonb().$type<ParametrosCertificacion>(),
     estado: text().$type<"borrador" | "emitido">().notNull().default("borrador"),
     /** Bloques de texto editables vigentes: { bloqueId: texto }. */
     bloques: jsonb().$type<Record<string, string>>().notNull(),
