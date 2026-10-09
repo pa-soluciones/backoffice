@@ -1,12 +1,14 @@
-import { FileText, Pencil } from "lucide-react";
+import { FileText, Pencil, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { BonificadoBadge, EstadoBadge } from "@/components/estado-badge";
 import { Migas } from "@/components/migas";
 import { buttonVariants } from "@/components/ui/button";
 import { alcanceDe } from "@/domain/permisos";
 import { obtenerObra } from "@/services/obras";
+import { listarPresupuestos } from "@/services/presupuestos";
 import { getPermisos, requirePermiso } from "@/services/sesion";
 
 export const metadata: Metadata = { title: "Obra" };
@@ -26,6 +28,7 @@ async function Contenido({ params }: { params: Promise<{ clienteId: string; obra
   const [r, permisos] = await Promise.all([obtenerObra(obraId), getPermisos(usuario.id)]);
   if (!r) notFound();
   const { obra, cliente, director } = r;
+  const presupuestos = alcanceDe(permisos, "presupuestos", "leer") ? await listarPresupuestos({ obraId: obra.id }) : [];
 
   return (
     <>
@@ -65,11 +68,33 @@ async function Contenido({ params }: { params: Promise<{ clienteId: string; obra
       {obra.notas && <p className="rounded-xl border bg-card p-4 text-sm whitespace-pre-line">{obra.notas}</p>}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Presupuestos</h2>
-        <div className="rounded-xl border border-dashed bg-card px-6 py-10 text-center">
-          <FileText className="mx-auto size-8 text-muted-foreground" aria-hidden />
-          <p className="mt-2 text-sm text-muted-foreground">Todavía no hay presupuestos en esta obra.</p>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Presupuestos</h2>
+          {alcanceDe(permisos, "presupuestos", "escribir") && (
+            <Link href={`/presupuestos/nuevo?clienteId=${cliente.id}&obraId=${obra.id}`} className={buttonVariants()}>
+              <Plus data-icon="inline-start" /> Presupuesto
+            </Link>
+          )}
         </div>
+        {presupuestos.length === 0 ? (
+          <div className="rounded-xl border border-dashed bg-card px-6 py-10 text-center">
+            <FileText className="mx-auto size-8 text-muted-foreground" aria-hidden />
+            <p className="mt-2 text-sm text-muted-foreground">Todavía no hay presupuestos en esta obra.</p>
+          </div>
+        ) : (
+          <ul className="divide-y rounded-xl border bg-card">
+            {presupuestos.map((p) => (
+              <li key={p.id}>
+                <Link href={`/presupuestos/${p.id}`} className="flex flex-wrap items-center gap-3 p-4 hover:bg-muted/60">
+                  <FileText className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="flex-1 font-mono font-semibold tabular-nums">{p.codigo ?? "Sin numerar"}</span>
+                  {p.bonificado && <BonificadoBadge />}
+                  <EstadoBadge estado={p.estado} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </>
   );

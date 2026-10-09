@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Folder, HardHat, Search, type LucideIcon } from "lucide-react";
+import { Building2, FileText, Folder, HardHat, Search, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { accionBuscar } from "@/app/(app)/explorador/actions";
@@ -8,6 +8,7 @@ import type { Resultado } from "@/services/busqueda";
 import { cn } from "@/lib/utils";
 
 const GRUPOS: { tipo: Resultado["tipo"]; titulo: string; icon: LucideIcon }[] = [
+  { tipo: "presupuesto", titulo: "Presupuestos", icon: FileText },
   { tipo: "cliente", titulo: "Clientes", icon: Building2 },
   { tipo: "obra", titulo: "Obras", icon: Folder },
   { tipo: "director", titulo: "Directores de obra", icon: HardHat },
@@ -66,7 +67,7 @@ export function Buscador() {
         className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border bg-background px-3 text-sm text-muted-foreground hover:border-ring md:max-w-md"
       >
         <Search className="size-4 shrink-0" aria-hidden />
-        <span className="truncate">Buscar cliente, dirección, director…</span>
+        <span className="truncate">Buscar presupuesto, cliente, dirección…</span>
         <kbd className="ml-auto hidden rounded border px-1.5 text-xs md:inline">Ctrl K</kbd>
       </button>
 
@@ -94,7 +95,7 @@ export function Buscador() {
                 abrir(ordenados[sel]);
               }
             }}
-            placeholder="Cliente, dirección o director de obra"
+            placeholder="Nº de presupuesto, cliente, dirección o director"
             aria-label="Buscar"
             role="combobox"
             aria-expanded={ordenados.length > 0}

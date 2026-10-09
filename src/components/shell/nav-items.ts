@@ -23,8 +23,8 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: House, mobile: true, enabled: true },
   { href: "/explorador", label: "Explorador", icon: FolderTree, mobile: true, enabled: true },
-  { href: "/seguimiento", label: "Seguimiento", icon: KanbanSquare, enabled: false },
-  { href: "/agenda", label: "Agenda", icon: CalendarDays, mobile: true, enabled: false },
+  { href: "/presupuestos", label: "Seguimiento", icon: KanbanSquare, enabled: true },
+  { href: "/agenda", label: "Agenda", icon: CalendarDays, mobile: true, enabled: true },
   { href: "/campo", label: "Campo", icon: HardHat, mobile: true, enabled: false },
   { href: "/stock", label: "Stock", icon: Package, enabled: false },
   { href: "/finanzas", label: "Finanzas", icon: BarChart3, enabled: false },

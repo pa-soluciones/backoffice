@@ -6,6 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { alcanceDe } from "@/domain/permisos";
 import { cn } from "@/lib/utils";
 import { listarClientes } from "@/services/clientes";
+import { listarPresupuestos } from "@/services/presupuestos";
 import { getPermisos, requirePermiso } from "@/services/sesion";
 
 export const metadata: Metadata = { title: "Explorador" };
@@ -18,6 +19,7 @@ async function Clientes({ searchParams }: { searchParams: Promise<Record<string,
   const archivados = sp.archivados === "1";
   const orden = sp.orden === "actividad" ? "actividad" : "nombre";
   const [lista, permisos] = await Promise.all([listarClientes({ archivados, orden }), getPermisos(usuario.id)]);
+  const anonimos = !archivados && alcanceDe(permisos, "presupuestos", "leer") ? await listarPresupuestos({ sinCliente: true }) : [];
   const qs = (c: { archivados?: boolean; orden?: string }) =>
     `?${new URLSearchParams({ ...((c.archivados ?? archivados) ? { archivados: "1" } : {}), orden: c.orden ?? orden })}`;
 
@@ -48,6 +50,16 @@ async function Clientes({ searchParams }: { searchParams: Promise<Record<string,
           </Link>
         )}
       </div>
+
+      {anonimos.length > 0 && (
+        <Link href="/explorador/sin-cliente" className="flex items-center gap-3 rounded-xl border border-dashed bg-card p-4 hover:bg-muted/60">
+          <Folder className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="flex-1 font-semibold">Sin cliente</span>
+          <span className="text-sm text-muted-foreground">
+            {anonimos.length} {anonimos.length === 1 ? "prospecto" : "prospectos"}
+          </span>
+        </Link>
+      )}
 
       {lista.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-card px-6 py-12 text-center">
