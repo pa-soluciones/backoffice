@@ -14,6 +14,7 @@ import { listarAdicionales } from "@/services/adicionales";
 import { responsablesDeVisitas } from "@/services/agenda";
 import { listarAnexos } from "@/services/anexos";
 import { balancePresupuesto } from "@/services/campo";
+import { listarCertificaciones } from "@/services/certificaciones";
 import { listarCobros } from "@/services/cobros";
 import { documentosEmitidos } from "@/services/documentos";
 import { ErrorNegocio } from "@/services/errores";
@@ -26,6 +27,7 @@ import { ItemsEditor } from "../_componentes/items-editor";
 import { BotonCrearAdicional } from "../_componentes/adicional";
 import { Anexos } from "../_componentes/anexos";
 import { TablaBalance } from "../_componentes/balance";
+import { BotonNuevaCertificacion } from "../_componentes/certificacion";
 import { Cobros } from "../_componentes/cobros";
 import { Descargas } from "../_componentes/descargas";
 import { BotonesRevision } from "../_componentes/revisiones";
@@ -38,6 +40,8 @@ const fecha = new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeZone: "
 const hoyAR = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(new Date());
 
 const ESTADO_VISITA = { pendiente: "Sin fecha", agendada: "Agendada", realizada: "Realizada", omitida: "Omitida", cancelada: "Cancelada" } as const;
+
+const EN_CURSO = ["en_progreso", "pendiente_liquidacion", "terminado"];
 
 function Seccion({ titulo, children, accion }: { titulo: string; children: React.ReactNode; accion?: React.ReactNode }) {
   return (
@@ -63,7 +67,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
   }
   const permisos = await getPermisos(usuario.id);
   const puede = (m: Parameters<typeof alcanceDe>[1], a: Parameters<typeof alcanceDe>[2]) => !!alcanceDe(permisos, m, a);
-  const [admin, usuarios, responsables, docs, adicionales, anexos, balance, cobros] = await Promise.all([
+  const [admin, usuarios, responsables, docs, adicionales, anexos, balance, cobros, certificaciones] = await Promise.all([
     esAdmin(usuario.id),
     opcionesUsuarios(),
     responsablesDeVisitas(p.visitas.map((v) => v.id)),
@@ -72,6 +76,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
     puede("anexos", "leer") ? listarAnexos(id) : null,
     puede("campo", "leer") && ["en_progreso", "pendiente_liquidacion", "terminado"].includes(p.estado) ? balancePresupuesto(id) : null,
     puede("cobros", "leer") && p.verMontos ? listarCobros(id) : null,
+    puede("documentos", "leer") && p.verMontos && EN_CURSO.includes(p.estado) ? listarCertificaciones(id) : null,
   ]);
   const cerrado = esFinal(p.estado);
   const borrador = p.revisionActual?.estado === "borrador";
@@ -236,6 +241,39 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
                   </Link>
                 </li>
               ))}
+            </ul>
+          )}
+        </Seccion>
+      )}
+
+      {certificaciones && (
+        <Seccion
+          titulo="Certificaciones"
+          accion={
+            p.estado !== "terminado" && puede("documentos", "escribir") ? (
+              <BotonNuevaCertificacion presupuestoId={p.id}>Certificación de obra</BotonNuevaCertificacion>
+            ) : null
+          }
+        >
+          {certificaciones.length === 0 ? (
+            <p className="rounded-xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">Sin certificaciones.</p>
+          ) : (
+            <ul className="divide-y rounded-xl border bg-card text-sm">
+              {certificaciones.map((c) => {
+                const ad = adicionales.find((a) => a.id === c.adicionalId);
+                const cod = `${ad ? ad.codigo : p.codigo}-C${c.nro}`;
+                return (
+                  <li key={c.id}>
+                    <Link href={`/presupuestos/${p.id}/certificaciones/${c.id}`} className="flex min-h-12 flex-wrap items-center gap-3 p-3 hover:bg-muted">
+                      <span className="min-w-0 flex-1 font-mono font-semibold">{cod}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {c.tipo === "final" ? "Final" : "Parcial"} · {c.estado === "emitido" ? "Emitida" : "Borrador"}
+                      </span>
+                      {c.total != null && <span className="tabular-nums">{formatearMonto(c.total, p.moneda)}</span>}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Seccion>

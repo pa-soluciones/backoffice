@@ -16,6 +16,7 @@ import { ESTADOS_ADICIONAL, type EstadoAdicional } from "@/domain/adicionales";
 import { agendarVisita, resolverVisita } from "@/services/agenda";
 import { confirmarAnexo, eliminarAnexo, prepararAnexo, urlAnexo } from "@/services/anexos";
 import { eliminarCobro, registrarCobro } from "@/services/cobros";
+import { crearCertificacion, emitirCertificacion, fijarParametrosCertificacion } from "@/services/certificaciones";
 import { MEDIOS } from "@/domain/cobros";
 import { crearControl, descargar, emitirControl, fijarAlcanceControl, guardarBloques, restaurarVersion } from "@/services/documentos";
 import { proponerBloque } from "@/services/ia";
@@ -374,4 +375,31 @@ export async function accionRegistrarCobro(presupuestoId: string, _: Estado_, fd
 
 export async function accionEliminarCobro(presupuestoId: string, cobroId: string): Promise<Estado_> {
   return ejecutar(() => eliminarCobro(presupuestoId, cobroId), [`/presupuestos/${presupuestoId}`]);
+}
+
+// ── Certificaciones ───────────────────────────────────────────────────────────
+
+const rutaCertificacion = (presupuestoId: string, id: string) => `/presupuestos/${presupuestoId}/certificaciones/${id}`;
+
+export async function accionCrearCertificacion(presupuestoId: string, adicionalId: string | null): Promise<Estado_> {
+  return ejecutar(async () => rutaCertificacion(presupuestoId, await crearCertificacion(presupuestoId, adicionalId)), [`/presupuestos/${presupuestoId}`]);
+}
+
+export async function accionParametrosCertificacion(presupuestoId: string, id: string, _: Estado_, fd: FormData): Promise<Estado_> {
+  const tipo = fd.get("tipo") === "final" ? "final" : "parcial";
+  const cantidades: Record<string, number> = {};
+  for (const [k, v] of fd.entries()) if (k.startsWith("cant_") && String(v).trim() !== "") cantidades[k.slice(5)] = Number(v);
+  const incluidos = fd.getAll("adicional").map(String);
+  return ejecutar(
+    () => fijarParametrosCertificacion(id, { tipo, cantidades, adicionales: fd.has("conAdicionales") ? incluidos : null }),
+    [rutaCertificacion(presupuestoId, id)],
+  );
+}
+
+export async function accionEmitirCertificacion(presupuestoId: string, id: string): Promise<Estado_> {
+  let cod = "";
+  const r = await ejecutar(async () => {
+    cod = await emitirCertificacion(id);
+  }, [rutaCertificacion(presupuestoId, id), `/presupuestos/${presupuestoId}`]);
+  return r?.error ? r : { ok: `Emitida ${cod}.` };
 }

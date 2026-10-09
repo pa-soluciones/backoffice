@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { Parrafo } from "@/domain/bloques";
 import type { DocAdicional } from "@/documents/adicional";
+import type { DocCertificacion } from "@/documents/certificacion";
 import type { DocControl } from "@/documents/control";
 import type { DocPresupuesto } from "@/documents/presupuesto";
 import { cn } from "@/lib/utils";
@@ -336,6 +337,99 @@ export function VistaPreviaControl({ d, activo, onElegir }: Editable & { d: DocC
         <p className="border-t border-[#1a1a1a] pt-1">FIRMA RESPONSABLE / OPERADOR</p>
         <p className="border-t border-[#1a1a1a] pt-1">FIRMA / CONFORMIDAD INSPECCIÓN</p>
       </div>
+    </Hoja>
+  );
+}
+
+export function VistaPreviaCertificacion({ d, activo, onElegir }: Editable & { d: DocCertificacion }) {
+  const b = bloquesDe(d);
+  const e = { activo, onElegir };
+  let n = 0;
+  return (
+    <Hoja
+      campos={[
+        ["Certificación Nro.", d.codigo],
+        ["Fecha de Emisión:", d.fecha],
+        ["Presupuesto de Referencia:", `${d.presupuesto_codigo} - ${d.presupuesto_fecha}`],
+      ]}
+      cliente={d.cliente}
+      director={d.director}
+      direccion={d.direccion}
+    >
+      <h2 className="text-center text-base font-bold" style={{ color: NARANJA }}>
+        {d.titulo}
+      </h2>
+      <Titulo n={++n}>OBJETO</Titulo>
+      <Bloque id="objeto" {...e}>
+        <Texto ps={b("objeto")} className="indent-10" />
+      </Bloque>
+      {d.hay_originales && (
+        <>
+          <Titulo n={++n}>TRABAJOS CERTIFICADOS SEGÚN PRESUPUESTO NRO. {d.presupuesto_codigo}</Titulo>
+          <TablaItems items={d.originales} etiquetaTotal={d.subtotal_originales_label} total={d.subtotal_originales} />
+        </>
+      )}
+      {d.hay_adicionales && (
+        <>
+          <Titulo n={++n}>TRABAJOS ADICIONALES INCORPORADOS</Titulo>
+          <Bloque id="adicionales" {...e}>
+            <Texto ps={b("adicionales")} className="indent-10" />
+          </Bloque>
+          <TablaItems items={d.adicionales_items} etiquetaTotal="Subtotal trabajos adicionales" total={d.subtotal_adicionales} />
+        </>
+      )}
+      <table className="w-full text-white" style={{ background: NARANJA_TABLA }}>
+        <tbody>
+          <tr>
+            <td className="p-3 text-right font-bold">
+              MONTO TOTAL CERTIFICADO
+              <span className="block text-[11px] font-normal">{d.total_detalle}</span>
+            </td>
+            <td className="p-3 text-center text-base font-bold">{d.total_certificado}</td>
+          </tr>
+        </tbody>
+      </table>
+      <Titulo n={++n}>SITUACIÓN DE PAGOS</Titulo>
+      <Bloque id="pagos" {...e}>
+        <Texto ps={b("pagos")} className="indent-10" />
+      </Bloque>
+      <table className="w-full border-collapse text-left text-[11.5px]">
+        <thead>
+          <tr className="font-semibold">
+            <th className="p-2">Concepto</th>
+            <th className="p-2 text-center">Estado</th>
+            <th className="p-2 text-center">Importe</th>
+          </tr>
+        </thead>
+        <tbody>
+          {d.pagos_filas.map((p) => (
+            <tr key={p.concepto} style={{ background: DURAZNO }}>
+              <td className="border p-2" style={{ borderColor: NARANJA_TABLA }}>
+                {p.concepto}
+              </td>
+              <td className="border p-2 text-center font-semibold" style={{ borderColor: NARANJA_TABLA, color: p.abonado ? "#008a3e" : "#c00000" }}>
+                {p.estado}
+              </td>
+              <td className="border p-2 text-center" style={{ borderColor: NARANJA_TABLA }}>
+                {p.importe}
+              </td>
+            </tr>
+          ))}
+          <tr className="font-bold text-white" style={{ background: NARANJA_TABLA }}>
+            <td colSpan={2} className="p-3 text-right">
+              SALDO TOTAL POR ABONAR
+            </td>
+            <td className="p-3 text-center">{d.saldo_total}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Saldo total pendiente por abonar: {d.saldo_letras} ({d.saldo_total}).
+      </p>
+      <Titulo n={++n}>OBSERVACIONES</Titulo>
+      <Bloque id="observaciones" {...e}>
+        <Texto ps={b("observaciones")} />
+      </Bloque>
     </Hoja>
   );
 }

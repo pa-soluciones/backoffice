@@ -14,6 +14,7 @@ import { ErrorNegocio } from "@/services/errores";
 import { getPermisos, requirePermiso } from "@/services/sesion";
 import { accionGuardarItemsAdicional } from "../../../actions";
 import { AccionesAdicional, CondicionesAdicional } from "../../../_componentes/adicional";
+import { BotonNuevaCertificacion } from "../../../_componentes/certificacion";
 import { Descargas } from "../../../_componentes/descargas";
 import { ItemsEditor } from "../../../_componentes/items-editor";
 
@@ -109,6 +110,13 @@ async function Contenido({ params }: { params: Promise<{ id: string; adId: strin
         </div>
         {a.documento?.estado === "emitido" && a.verMontos && <Descargas documentoId={a.documento.id} pdfPendiente={a.documento.pdfEstado !== "ok"} />}
         {puede("presupuestos", "cambiar_estado") && <AccionesAdicional presupuestoId={id} id={adId} estado={a.estado} puedeEmitir={puede("documentos", "emitir")} />}
+        {a.estado === "aprobado" && a.verMontos && puede("documentos", "escribir") && (
+          <div className="flex justify-start">
+            <BotonNuevaCertificacion presupuestoId={id} adicionalId={adId}>
+              Certificación del adicional
+            </BotonNuevaCertificacion>
+          </div>
+        )}
       </section>
     </>
   );
