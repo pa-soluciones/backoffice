@@ -341,6 +341,26 @@ export async function guardarComerciales(id: string, d: DatosComerciales) {
 
 export type ItemEntrada = ItemEstructurado & { cantidad: number; precioUnitario: number; descripcion: string | null };
 
+/** Filas de ítems listas para insertar (sin dueño): descripción automática salvo que la editen. */
+export function filasItems(entrada: ItemEntrada[]) {
+  return entrada.map((it, i) => {
+    const auto = descripcionAuto(it);
+    const manual = !!it.descripcion?.trim() && it.descripcion.trim() !== auto;
+    return {
+      nro: i + 1,
+      tipoServicio: it.tipoServicio,
+      elemento: it.elemento,
+      diametroMm: it.diametroMm == null ? null : String(it.diametroMm),
+      espesorCm: it.espesorCm == null ? null : String(it.espesorCm),
+      unidad: it.unidad,
+      cantidad: String(it.cantidad),
+      precioUnitario: String(it.precioUnitario),
+      descripcion: manual ? it.descripcion!.trim() : auto,
+      descripcionManual: manual,
+    };
+  });
+}
+
 export async function guardarItems(id: string, entrada: ItemEntrada[]) {
   const { usuario } = await acceso(id, "presupuestos", "escribir");
   const p = await cargar(id);
@@ -352,23 +372,7 @@ export async function guardarItems(id: string, entrada: ItemEntrada[]) {
     await tx.delete(items).where(eq(items.revisionId, r.id));
     if (entrada.length)
       await tx.insert(items).values(
-        entrada.map((it, i) => {
-          const auto = descripcionAuto(it);
-          const manual = !!it.descripcion?.trim() && it.descripcion.trim() !== auto;
-          return {
-            revisionId: r.id,
-            nro: i + 1,
-            tipoServicio: it.tipoServicio,
-            elemento: it.elemento,
-            diametroMm: it.diametroMm == null ? null : String(it.diametroMm),
-            espesorCm: it.espesorCm == null ? null : String(it.espesorCm),
-            unidad: it.unidad,
-            cantidad: String(it.cantidad),
-            precioUnitario: String(it.precioUnitario),
-            descripcion: manual ? it.descripcion!.trim() : auto,
-            descripcionManual: manual,
-          };
-        }),
+        filasItems(entrada).map((f) => ({ ...f, revisionId: r.id })),
       );
     await tx.update(presupuestos).set({ updatedAt: new Date() }).where(eq(presupuestos.id, id));
   });

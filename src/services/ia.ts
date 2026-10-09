@@ -2,7 +2,6 @@ import "server-only";
 import { eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { configuracion, iaUso } from "@/db/schema";
-import { BLOQUES } from "@/documents/presupuesto";
 import { UNIDADES } from "@/domain/items";
 import { ACCIONES_IA, cifrasNuevas, costoUsd, MODELO_DEFAULT, MODELOS, type AccionIA, type Modelo } from "@/domain/ia";
 import { formatearMonto } from "@/domain/montos";
@@ -75,12 +74,12 @@ const TAREA: Record<Exclude<AccionIA, "instruccion">, string> = {
 /** Propone un texto nuevo para un bloque. No guarda nada. */
 export async function proponerBloque(documentoId: string, bloqueId: string, accion: AccionIA, instruccion: string | null, textoActual: string) {
   await requirePermiso("ia", "escribir");
-  const bloque = BLOQUES.find((b) => b.id === bloqueId);
-  if (!bloque) throw new ErrorNegocio("Sección desconocida.");
   if (accion === "instruccion" && !instruccion?.trim()) throw new ErrorNegocio("Escribí qué querés cambiar.");
   if (!claudeConfigurado()) throw new ErrorNegocio("La IA no está configurada (falta ANTHROPIC_API_KEY). Avisale a un administrador.");
 
   const ctx = await contextoParaIA(documentoId);
+  const bloque = ctx.bloquesDef.find((b) => b.id === bloqueId);
+  if (!bloque) throw new ErrorNegocio("Sección desconocida.");
   const config = await configIA();
   const mes = await gastoDelMes();
   if (mes.usd >= config.limiteMensualUsd) {

@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  adicionales,
   clientes,
   directoresObra,
   documentos,
@@ -13,6 +14,7 @@ import {
   user,
   visitas,
 } from "@/db/schema";
+import * as docAdicional from "@/documents/adicional";
 import { BLOQUES, armar, bloquesPorDefecto, type DatosPresupuesto } from "@/documents/presupuesto";
 import { renderDocx } from "@/documents/render";
 import type { TipoServicio, Unidad } from "@/domain/items";
@@ -70,6 +72,54 @@ async function datosPresupuesto(presupuestoId: string, revisionId: string): Prom
   };
 }
 
+const BLOQUES_POR_TIPO = { presupuesto: BLOQUES, adicional: docAdicional.BLOQUES } as const;
+
+/** Datos bloqueados del documento de un trabajo adicional. */
+async function datosAdicional(adicionalId: string): Promise<docAdicional.DatosAdicional> {
+  const [a] = await db.select().from(adicionales).where(eq(adicionales.id, adicionalId));
+  const [p] = await db.select().from(presupuestos).where(eq(presupuestos.id, a.presupuestoId));
+  const [cli] = p.clienteId ? await db.select({ n: clientes.razonSocial }).from(clientes).where(eq(clientes.id, p.clienteId)) : [];
+  const [obra] = p.obraId
+    ? await db.select({ direccion: obras.direccion, director: directoresObra.nombre }).from(obras).leftJoin(directoresObra, eq(directoresObra.id, obras.directorId)).where(eq(obras.id, p.obraId))
+    : [];
+  const [rev] = await db
+    .select({ emitidaAt: presupuestoRevisiones.emitidaAt })
+    .from(presupuestoRevisiones)
+    .where(and(eq(presupuestoRevisiones.presupuestoId, p.id), eq(presupuestoRevisiones.estado, "emitida")));
+  const its = await db.select().from(items).where(eq(items.adicionalId, adicionalId)).orderBy(asc(items.nro));
+  // Solo el % se traslada al adicional (un monto fijo es del presupuesto original).
+  const bonificacion = a.mantieneBonificacion && p.bonifTipo === "pct" && p.bonifValor ? { tipo: "pct" as const, valor: Number(p.bonifValor) } : null;
+  const cod = codigo(p) ?? "Sin numerar";
+  return {
+    codigo: `${cod}-AD${a.nro}`,
+    fecha: a.emitidoAt ?? new Date(),
+    moneda: a.moneda as Moneda,
+    validezDias: a.validezDias,
+    anticipoPct: Number(a.anticipoPct),
+    incluyeIva: p.incluyeIva,
+    bonificado: !!bonificacion,
+    cliente: cli?.n ?? "",
+    director: obra?.director ?? null,
+    direccion: obra?.direccion ?? "",
+    presupuestoCodigo: cod,
+    presupuestoFecha: rev?.emitidaAt ?? null,
+    items: its.map((i) => ({
+      descripcion: i.descripcion,
+      cantidad: Number(i.cantidad),
+      unidad: i.unidad as Unidad,
+      precioUnitario: Number(i.precioUnitario),
+      tipoServicio: i.tipoServicio as TipoServicio,
+      elemento: i.elemento,
+      diametroMm: num(i.diametroMm),
+      espesorCm: num(i.espesorCm),
+    })),
+    totales: calcularTotales(
+      its.map((i) => ({ cantidad: Number(i.cantidad), precioUnitario: Number(i.precioUnitario) })),
+      { bonificacion, incluyeIva: p.incluyeIva, ivaPct: Number(p.ivaPct) },
+    ),
+  };
+}
+
 /** El documento trae precios: además de leer el presupuesto, hay que poder ver montos. */
 async function accesoDocumento(presupuestoId: string, accion: "leer" | "escribir") {
   const r = await acceso(presupuestoId, "documentos", accion);
@@ -114,6 +164,22 @@ export async function documentoActual(presupuestoId: string) {
   };
 }
 
+/** Documento del adicional; si no existe lo crea con los textos por defecto. */
+export async function documentoAdicional(adicionalId: string) {
+  const [a] = await db.select().from(adicionales).where(eq(adicionales.id, adicionalId));
+  if (!a) throw new ErrorNegocio("El adicional no existe.");
+  const { usuario } = await accesoDocumento(a.presupuestoId, "leer");
+  const datos = await datosAdicional(adicionalId);
+  let [doc] = await db.select().from(documentos).where(eq(documentos.adicionalId, adicionalId));
+  if (!doc) {
+    const bloques = docAdicional.bloquesPorDefecto(datos);
+    [doc] = await db.insert(documentos).values({ tipo: "adicional", presupuestoId: a.presupuestoId, adicionalId, bloques }).onConflictDoNothing().returning();
+    doc ??= (await db.select().from(documentos).where(eq(documentos.adicionalId, adicionalId)))[0];
+    await db.insert(documentoVersiones).values({ documentoId: doc.id, nro: 1, bloques, origen: "sistema", userId: usuario.id }).onConflictDoNothing();
+  }
+  return { doc, datos, editable: doc.estado === "borrador" && a.estado === "borrador", defaults: docAdicional.bloquesPorDefecto(datos) };
+}
+
 export async function versiones(documentoId: string) {
   const [doc] = await db.select().from(documentos).where(eq(documentos.id, documentoId));
   if (!doc) throw new ErrorNegocio("El documento no existe.");
@@ -132,8 +198,9 @@ export async function guardarBloques(documentoId: string, bloques: Record<string
   if (!doc) throw new ErrorNegocio("El documento no existe.");
   const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir");
   if (doc.estado !== "borrador") throw new ErrorNegocio("El documento ya fue emitido: creá una nueva revisión para modificarlo.");
-  const limpios = Object.fromEntries(BLOQUES.map((b) => [b.id, (bloques[b.id] ?? doc.bloques[b.id] ?? "").slice(0, 10_000)]));
-  if (BLOQUES.every((b) => limpios[b.id] === doc.bloques[b.id])) return doc.version;
+  const defs = BLOQUES_POR_TIPO[doc.tipo];
+  const limpios = Object.fromEntries(defs.map((b) => [b.id, (bloques[b.id] ?? doc.bloques[b.id] ?? "").slice(0, 10_000)]));
+  if (defs.every((b) => limpios[b.id] === doc.bloques[b.id])) return doc.version;
 
   const nro = doc.version + 1;
   await db.transaction(async (tx) => {
@@ -151,8 +218,38 @@ export async function restaurarVersion(documentoId: string, nro: number) {
   return v.bloques;
 }
 
-const nombreArchivo = (cod: string, cliente: string, ext: string) =>
-  `PAS - Presupuesto ${cod.replace(/\//g, "-")} - ${cliente.replace(/[\\/:*?"<>|]/g, "")}.${ext}`;
+const NOMBRE_TIPO = { presupuesto: "Presupuesto", adicional: "Adicional" } as const;
+const nombreArchivo = (tipo: keyof typeof NOMBRE_TIPO, cod: string, cliente: string, ext: string) =>
+  `PAS - ${NOMBRE_TIPO[tipo]} ${cod.replace(/\//g, "-")} - ${cliente.replace(/[\\/:*?"<>|]/g, "")}.${ext}`;
+
+/** DOCX + PDF → R2 y documento emitido. Si Gotenberg falla, el PDF queda pendiente. */
+async function emitirDocumento(doc: typeof documentos.$inferSelect, armado: { codigo: string; cliente: string }, fecha: Date, usuarioId: string) {
+  const docx = renderDocx(doc.tipo, armado);
+  const meta = { entidadTipo: "documento", entidadId: doc.id, categoria: doc.tipo, createdBy: usuarioId };
+  const docxId = await guardarArchivo(docx, {
+    ...meta,
+    nombre: nombreArchivo(doc.tipo, armado.codigo, armado.cliente, "docx"),
+    mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+  let pdfId: string | null = null;
+  try {
+    pdfId = await guardarArchivo(await docxToPdf(docx), { ...meta, nombre: nombreArchivo(doc.tipo, armado.codigo, armado.cliente, "pdf"), mime: "application/pdf" });
+  } catch (e) {
+    console.error("[documentos] PDF pendiente:", e);
+  }
+  await db
+    .update(documentos)
+    .set({ estado: "emitido", emitidoAt: fecha, emitidoPor: usuarioId, snapshot: armado, docxArchivoId: docxId, pdfArchivoId: pdfId, pdfEstado: pdfId ? "ok" : "pendiente", updatedAt: new Date() })
+    .where(eq(documentos.id, doc.id));
+}
+
+/** Emisión de un adicional: genera sus archivos con el código definitivo. Devuelve los totales. */
+export async function generarArchivosAdicional(adicionalId: string, fecha: Date, usuarioId: string) {
+  const { doc } = await documentoAdicional(adicionalId);
+  const datos = { ...(await datosAdicional(adicionalId)), fecha };
+  await emitirDocumento(doc, docAdicional.armar(datos, doc.bloques), fecha, usuarioId);
+  return datos.totales;
+}
 
 /**
  * Genera DOCX (+ PDF) de la revisión y los guarda en R2. Se llama al emitir, antes de marcar
@@ -163,20 +260,7 @@ export async function generarArchivos(presupuestoId: string, revisionId: string,
   const { doc } = await documentoActual(presupuestoId);
   if (doc.revisionId !== revisionId) throw new ErrorNegocio("El documento no corresponde a la revisión.");
   const datos = { ...(await datosPresupuesto(presupuestoId, revisionId)), fecha };
-  const armado = armar(datos, doc.bloques);
-  const docx = renderDocx("presupuesto", armado);
-  const meta = { entidadTipo: "documento", entidadId: doc.id, categoria: "presupuesto", createdBy: usuarioId };
-  const docxId = await guardarArchivo(docx, { ...meta, nombre: nombreArchivo(datos.codigo, datos.cliente, "docx"), mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-  let pdfId: string | null = null;
-  try {
-    pdfId = await guardarArchivo(await docxToPdf(docx), { ...meta, nombre: nombreArchivo(datos.codigo, datos.cliente, "pdf"), mime: "application/pdf" });
-  } catch (e) {
-    console.error("[documentos] PDF pendiente:", e);
-  }
-  await db
-    .update(documentos)
-    .set({ estado: "emitido", emitidoAt: fecha, emitidoPor: usuarioId, snapshot: armado, docxArchivoId: docxId, pdfArchivoId: pdfId, pdfEstado: pdfId ? "ok" : "pendiente", updatedAt: new Date() })
-    .where(eq(documentos.id, doc.id));
+  await emitirDocumento(doc, armar(datos, doc.bloques), fecha, usuarioId);
 }
 
 /** URL firmada de descarga. Si el PDF quedó pendiente, se genera ahora. */
@@ -186,14 +270,14 @@ export async function descargar(documentoId: string, formato: "docx" | "pdf") {
   const { usuario } = await accesoDocumento(doc.presupuestoId, "leer");
   if (formato === "docx") return urlDescarga(doc.docxArchivoId);
   if (!doc.pdfArchivoId) {
-    const docx = renderDocx("presupuesto", doc.snapshot as object);
+    const docx = renderDocx(doc.tipo, doc.snapshot as object);
     const snap = doc.snapshot as { codigo: string; cliente: string };
     const pdfId = await guardarArchivo(await docxToPdf(docx), {
-      nombre: nombreArchivo(snap.codigo, snap.cliente, "pdf"),
+      nombre: nombreArchivo(doc.tipo, snap.codigo, snap.cliente, "pdf"),
       mime: "application/pdf",
       entidadTipo: "documento",
       entidadId: doc.id,
-      categoria: "presupuesto",
+      categoria: doc.tipo,
       createdBy: usuario.id,
     });
     await db.update(documentos).set({ pdfArchivoId: pdfId, pdfEstado: "ok" }).where(eq(documentos.id, doc.id));
@@ -205,7 +289,7 @@ export async function descargar(documentoId: string, formato: "docx" | "pdf") {
 /** Documentos emitidos del presupuesto (para listar descargas). */
 export async function documentosEmitidos(presupuestoId: string) {
   return db
-    .select({ id: documentos.id, revisionId: documentos.revisionId, pdfEstado: documentos.pdfEstado })
+    .select({ id: documentos.id, revisionId: documentos.revisionId, adicionalId: documentos.adicionalId, pdfEstado: documentos.pdfEstado })
     .from(documentos)
     .where(and(eq(documentos.presupuestoId, presupuestoId), eq(documentos.estado, "emitido")));
 }
@@ -224,7 +308,8 @@ export async function contextoParaIA(documentoId: string) {
   return {
     usuario,
     doc,
-    datos: await datosPresupuesto(doc.presupuestoId, doc.revisionId!),
+    datos: doc.tipo === "adicional" ? await datosAdicional(doc.adicionalId!) : await datosPresupuesto(doc.presupuestoId, doc.revisionId!),
+    bloquesDef: BLOQUES_POR_TIPO[doc.tipo],
     pedido: p?.pedido ?? null,
     notasVisita: notas.flatMap((n) => [n.previas, n.resultado]).filter((x): x is string => !!x?.trim()),
   };
