@@ -12,7 +12,7 @@ function config() {
   if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET || !(R2_ENDPOINT || R2_ACCOUNT_ID)) {
     throw new Error("Faltan las variables de R2 (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET)");
   }
-  // R2_ENDPOINT permite usar MinIO en desarrollo.
+  // R2_ENDPOINT permite usar el mock S3 de docker compose en desarrollo.
   const endpoint = R2_ENDPOINT ?? `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
   return {
     base: `${endpoint.replace(/\/$/, "")}/${R2_BUCKET}`,
