@@ -11,6 +11,7 @@ import {
   presupuestoRevisiones,
   presupuestos,
   user,
+  visitas,
 } from "@/db/schema";
 import { BLOQUES, armar, bloquesPorDefecto, type DatosPresupuesto } from "@/documents/presupuesto";
 import { renderDocx } from "@/documents/render";
@@ -207,4 +208,24 @@ export async function documentosEmitidos(presupuestoId: string) {
     .select({ id: documentos.id, revisionId: documentos.revisionId, pdfEstado: documentos.pdfEstado })
     .from(documentos)
     .where(and(eq(documentos.presupuestoId, presupuestoId), eq(documentos.estado, "emitido")));
+}
+
+/** Contexto para la IA: lo mismo que ve el usuario en el documento + pedido y notas de visita. */
+export async function contextoParaIA(documentoId: string) {
+  const [doc] = await db.select().from(documentos).where(eq(documentos.id, documentoId));
+  if (!doc) throw new ErrorNegocio("El documento no existe.");
+  const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir");
+  if (doc.estado !== "borrador") throw new ErrorNegocio("El documento ya fue emitido.");
+  const [p] = await db.select({ pedido: presupuestos.pedido }).from(presupuestos).where(eq(presupuestos.id, doc.presupuestoId));
+  const notas = await db
+    .select({ previas: visitas.notasPrevias, resultado: visitas.notasResultado })
+    .from(visitas)
+    .where(eq(visitas.presupuestoId, doc.presupuestoId));
+  return {
+    usuario,
+    doc,
+    datos: await datosPresupuesto(doc.presupuestoId, doc.revisionId!),
+    pedido: p?.pedido ?? null,
+    notasVisita: notas.flatMap((n) => [n.previas, n.resultado]).filter((x): x is string => !!x?.trim()),
+  };
 }
