@@ -7,6 +7,7 @@ import {
   estadoHistorial,
   jornadaOperarios,
   jornadas,
+  mcpUso,
   presupuestoRevisiones,
   presupuestos,
   recordatoriosEnviados,
@@ -170,6 +171,7 @@ export async function ejecutarCronDiario(ahora = new Date()) {
 
   const resumenes = await enviarResumenDiario(inicio);
   const reintentos = await reintentarEmails();
+  await db.delete(mcpUso).where(lt(mcpUso.minuto, new Date(ahora.getTime() - DIA_MS))); // contadores del rate limit MCP
   const archivos = await limpiarPendientes().catch((e) => (console.error("[cron] limpiar subidas", e), 0));
   return { fecha: hoy, recordatorios: hechos, resumenes, reintentos, archivosLiberados: archivos };
 }

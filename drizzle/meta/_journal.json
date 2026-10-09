@@ -127,6 +127,13 @@
       "when": 1791572756784,
       "tag": "0017_reporte_mensual",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791573469301,
+      "tag": "0018_mcp",
+      "breakpoints": true
     }
   ]
 }

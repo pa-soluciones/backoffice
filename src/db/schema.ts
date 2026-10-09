@@ -111,8 +111,41 @@ export const auditLog = pgTable(
     diff: jsonb(),
     ip: text(),
     userAgent: text(),
+    /** Escrituras hechas por MCP: con qué token (spec/11 RF-MCP-06). */
+    mcpTokenId: uuid(),
   },
   (t) => [index().on(t.entityType, t.entityId, t.at), index().on(t.actorUserId, t.at)],
+);
+
+// ── MCP (spec/11) ─────────────────────────────────────────────────────────────
+
+export const mcpTokens = pgTable("mcp_tokens", {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: uuid()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  nombre: text().notNull(),
+  /** SHA-256 del token; el token en claro se muestra una sola vez. */
+  tokenHash: text().notNull().unique(),
+  ultimos4: text().notNull(),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+  revokedAt: timestamp({ withTimezone: true }),
+  lastUsedAt: timestamp({ withTimezone: true }),
+  lastUsedIp: text(),
+  createdAt: ts(),
+});
+
+/** Llamadas por token y minuto (rate limit RF-MCP-04). */
+export const mcpUso = pgTable(
+  "mcp_uso",
+  {
+    tokenId: uuid()
+      .notNull()
+      .references(() => mcpTokens.id, { onDelete: "cascade" }),
+    minuto: timestamp({ withTimezone: true }).notNull(),
+    llamadas: integer().notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.tokenId, t.minuto] })],
 );
 
 // ── Clientes, directores y obras (spec/04) ────────────────────────────────────

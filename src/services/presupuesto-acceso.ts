@@ -34,3 +34,16 @@ export async function acceso(presupuestoId: string, modulo: Modulo, accion: Acci
   }
   return r;
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Id de presupuesto a partir de un id o un código legible ("2026/0105", "2026/105"). */
+export async function presupuestoPorRef(ref: string) {
+  const r = ref.trim();
+  if (UUID.test(r)) return r;
+  const m = r.match(/^(\d{4})\/0*(\d+)/);
+  if (!m) throw new ErrorNegocio(`"${ref}" no es un código de presupuesto (ej. 2026/0105).`);
+  const [p] = await db.select({ id: presupuestos.id }).from(presupuestos).where(and(eq(presupuestos.anio, Number(m[1])), eq(presupuestos.numero, Number(m[2]))));
+  if (!p) throw new ErrorNegocio(`No existe el presupuesto ${ref}.`);
+  return p.id;
+}

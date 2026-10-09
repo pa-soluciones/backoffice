@@ -3,6 +3,7 @@ import { and, desc, eq, gte, ilike, lt, or } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/db";
 import { auditLog, user } from "@/db/schema";
+import { contextoMcp } from "./contexto";
 import { requirePermiso } from "./sesion";
 
 type Evento = {
@@ -22,11 +23,13 @@ export async function auditar(e: Evento) {
   try {
     h = await headers();
   } catch {}
+  const mcp = contextoMcp();
   await db.insert(auditLog).values({
     source: "ui",
     ...e,
-    ip: h?.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-    userAgent: h?.get("user-agent") ?? null,
+    ...(mcp ? { source: "mcp" as const, mcpTokenId: mcp.tokenId, diff: { ...e.diff, token: mcp.tokenNombre } } : {}),
+    ip: mcp?.ip ?? h?.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    userAgent: mcp ? "mcp" : (h?.get("user-agent") ?? null),
   });
 }
 
