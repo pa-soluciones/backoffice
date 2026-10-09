@@ -17,6 +17,7 @@ import {
 import * as docAdicional from "@/documents/adicional";
 import * as docCertificacion from "@/documents/certificacion";
 import * as docControl from "@/documents/control";
+import * as docReporte from "@/documents/reporte";
 import { BLOQUES, armar, bloquesPorDefecto, type DatosPresupuesto } from "@/documents/presupuesto";
 import { renderDocx } from "@/documents/render";
 import { rangoPisos } from "@/domain/balance";
@@ -79,7 +80,9 @@ async function datosPresupuesto(presupuestoId: string, revisionId: string): Prom
   };
 }
 
-const BLOQUES_POR_TIPO = { presupuesto: BLOQUES, adicional: docAdicional.BLOQUES, control: docControl.BLOQUES, certificacion: docCertificacion.BLOQUES } as const;
+const BLOQUES_POR_TIPO = { presupuesto: BLOQUES, adicional: docAdicional.BLOQUES, control: docControl.BLOQUES, certificacion: docCertificacion.BLOQUES, reporte: docReporte.BLOQUES } as const;
+/** El control y el reporte mensual no muestran precios: no exigen "ver montos". */
+const conMontos = (tipo: keyof typeof BLOQUES_POR_TIPO) => tipo !== "control" && tipo !== "reporte";
 
 /** Datos bloqueados del documento de un trabajo adicional. */
 async function datosAdicional(adicionalId: string): Promise<docAdicional.DatosAdicional> {
@@ -190,7 +193,7 @@ export async function documentoAdicional(adicionalId: string) {
 export async function versiones(documentoId: string) {
   const [doc] = await db.select().from(documentos).where(eq(documentos.id, documentoId));
   if (!doc) throw new ErrorNegocio("El documento no existe.");
-  await accesoDocumento(doc.presupuestoId, "leer", doc.tipo !== "control");
+  await accesoDocumento(doc.presupuestoId, "leer", conMontos(doc.tipo));
   return db
     .select({ nro: documentoVersiones.nro, origen: documentoVersiones.origen, at: documentoVersiones.at, usuario: user.name, bloques: documentoVersiones.bloques })
     .from(documentoVersiones)
@@ -203,7 +206,7 @@ export async function versiones(documentoId: string) {
 export async function guardarBloques(documentoId: string, bloques: Record<string, string>, origen: "usuario" | "ia" | "mcp" = "usuario") {
   const [doc] = await db.select().from(documentos).where(eq(documentos.id, documentoId));
   if (!doc) throw new ErrorNegocio("El documento no existe.");
-  const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir", doc.tipo !== "control");
+  const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir", conMontos(doc.tipo));
   if (doc.estado !== "borrador") throw new ErrorNegocio("El documento ya fue emitido: creá una nueva revisión para modificarlo.");
   const defs = BLOQUES_POR_TIPO[doc.tipo];
   const limpios = Object.fromEntries(defs.map((b) => [b.id, (bloques[b.id] ?? doc.bloques[b.id] ?? "").slice(0, 10_000)]));
@@ -225,14 +228,14 @@ export async function restaurarVersion(documentoId: string, nro: number) {
   return v.bloques;
 }
 
-const NOMBRE_TIPO = { presupuesto: "Presupuesto", adicional: "Adicional", control: "Control de perforaciones", certificacion: "Certificación" } as const;
+const NOMBRE_TIPO = { presupuesto: "Presupuesto", adicional: "Adicional", control: "Control de perforaciones", certificacion: "Certificación", reporte: "Reporte mensual" } as const;
 const nombreArchivo = (tipo: keyof typeof NOMBRE_TIPO, cod: string, cliente: string, ext: string) =>
   `PAS - ${NOMBRE_TIPO[tipo]} ${cod.replace(/\//g, "-")} - ${cliente.replace(/[\\/:*?"<>|]/g, "")}.${ext}`;
 
 /** DOCX + PDF → R2 y documento emitido. Si Gotenberg falla, el PDF queda pendiente. */
 export async function emitirDocumento(doc: typeof documentos.$inferSelect, armado: { codigo: string; cliente: string }, fecha: Date, usuarioId: string) {
-  // El control se firma en papel (operador e inspección): sin firma de la empresa.
-  const docx = renderDocx(doc.tipo, armado, doc.tipo === "control" ? null : await firmaParaDocumento());
+  // Control y reporte se firman en papel (operador, inspección, H&S): sin la imagen de firma de la empresa.
+  const docx = renderDocx(doc.tipo, armado, conMontos(doc.tipo) ? await firmaParaDocumento() : null);
   const meta = { entidadTipo: "documento", entidadId: doc.id, categoria: doc.tipo, createdBy: usuarioId };
   const docxId = await guardarArchivo(docx, {
     ...meta,
@@ -275,7 +278,7 @@ export async function generarArchivos(presupuestoId: string, revisionId: string,
 export async function descargar(documentoId: string, formato: "docx" | "pdf") {
   const [doc] = await db.select().from(documentos).where(eq(documentos.id, documentoId));
   if (!doc || doc.estado !== "emitido" || !doc.docxArchivoId) throw new ErrorNegocio("El documento no está emitido.");
-  const { usuario } = await accesoDocumento(doc.presupuestoId, "leer", doc.tipo !== "control");
+  const { usuario } = await accesoDocumento(doc.presupuestoId, "leer", conMontos(doc.tipo));
   if (formato === "docx") return urlDescarga(doc.docxArchivoId);
   if (!doc.pdfArchivoId) {
     const docx = await leerArchivo(doc.docxArchivoId); // el emitido, con la firma de ese momento
@@ -306,13 +309,17 @@ export async function documentosEmitidos(presupuestoId: string) {
 export async function contextoParaIA(documentoId: string) {
   const [doc] = await db.select().from(documentos).where(eq(documentos.id, documentoId));
   if (!doc) throw new ErrorNegocio("El documento no existe.");
-  const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir", doc.tipo !== "control");
+  const { usuario } = await accesoDocumento(doc.presupuestoId, "escribir", conMontos(doc.tipo));
   if (doc.estado !== "borrador") throw new ErrorNegocio("El documento ya fue emitido.");
   return { usuario, doc, bloquesDef: BLOQUES_POR_TIPO[doc.tipo], resumen: await resumenParaIA(doc) };
 }
 
 /** Datos del documento en texto, para el pedido a la IA. */
 async function resumenParaIA(doc: typeof documentos.$inferSelect) {
+  if (doc.tipo === "reporte") {
+    const r = doc.reporte!;
+    return [`- Período: ${r.periodo}`, `- Trabajadores: ${r.trabajadores}`, `- Días trabajados: ${r.dias}`, `- Accidentes: ${r.accidentes} (días perdidos: ${r.diasPerdidos})`].join("\n");
+  }
   if (doc.tipo === "certificacion") {
     const d = await datosCertificacion(doc);
     const t = docCertificacion.totales(d);

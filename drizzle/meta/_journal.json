@@ -120,6 +120,13 @@
       "when": 1791571722634,
       "tag": "0016_notificaciones",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791572756784,
+      "tag": "0017_reporte_mensual",
+      "breakpoints": true
     }
   ]
 }

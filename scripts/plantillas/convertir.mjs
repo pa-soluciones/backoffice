@@ -273,3 +273,28 @@ convertir("Template Certificación de Obra.docx", "certificacion.docx", {
     return envolver(x, "TRABAJOS ADICIONALES INCORPORADOS", "hay_adicionales");
   },
 });
+
+// ── Reporte mensual estadístico ───────────────────────────────────────────────
+convertir("Template reporte mensual estadistico.docx", "reporte.docx", {
+  "word/header1.xml": (x) => textos(x, [["&lt;Fecha Emisión&gt;", "{fecha}"]]),
+  "word/document.xml": (x) => {
+    x = textos(x, [
+      ["&lt;Nombre Contratista&gt;", "{cliente}"],
+      ["&lt;Ubicación Obra&gt;", "{direccion}"],
+      ["&lt;Año Actual&gt;", "{anio}"],
+      ["&lt;Mes Actual&gt;", "{mes}"],
+    ]);
+    // La firma de la empresa se imprime con la aclaración de quien emite (la del H&S, en papel).
+    x = x.split("&lt;Firma Responsable PAS&gt;").join("{responsable}");
+    x = fila(x, "5", ["{trabajadores}", "{accidentes}", "{dias}", "{dias_perdidos}"]);
+    // Observaciones: la primera fila vacía de la tabla lleva el bloque; las demás se quitan.
+    const t = [...x.matchAll(/<w:tbl>[\s\S]*?<\/w:tbl>/g)].find((m) => m[0].includes("OBSERVACIONES / COMENTARIOS")) ?? falla("no encontré la tabla de observaciones");
+    const filas = [...t[0].matchAll(/<w:tr[ >][\s\S]*?<\/w:tr>/g)];
+    if (filas.length < 3) falla("la tabla de observaciones cambió");
+    const fila1 = filas[1][0].replace(/<w:p( [^>]*?)?\/>/, "<w:p$1></w:p>"); // párrafo vacío autocerrado
+    const [p] = parrafos(fila1);
+    const primera = fila1.slice(0, p.start) + bloque(p.xml, "observaciones") + fila1.slice(p.end);
+    const nueva = t[0].slice(0, filas[1].index) + primera + t[0].slice(filas.at(-1).index + filas.at(-1)[0].length);
+    return x.slice(0, t.index) + nueva + x.slice(t.index + t[0].length);
+  },
+});

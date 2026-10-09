@@ -667,6 +667,8 @@ export const r2UsoMensual = pgTable("r2_uso_mensual", {
 
 // ── Documentos (spec/06) ──────────────────────────────────────────────────────
 
+export type DatosReporteMensual = { obraId: string; periodo: string; trabajadores: number; dias: number; accidentes: number; diasPerdidos: number };
+
 export type ParametrosCertificacion = {
   adicionalId: string | null;
   tipo: "parcial" | "final";
@@ -682,7 +684,7 @@ export const documentos = pgTable(
   "documentos",
   {
     id: uuid().primaryKey().defaultRandom(),
-    tipo: text().$type<"presupuesto" | "adicional" | "control" | "certificacion">().notNull(),
+    tipo: text().$type<"presupuesto" | "adicional" | "control" | "certificacion" | "reporte">().notNull(),
     presupuestoId: uuid()
       .notNull()
       .references(() => presupuestos.id),
@@ -695,6 +697,8 @@ export const documentos = pgTable(
     alcance: jsonb().$type<{ desde: string | null; hasta: string | null }>(),
     /** Certificación: de obra o de un adicional, parcial/final, cantidades por ítem y total certificado al emitir. */
     parametros: jsonb().$type<ParametrosCertificacion>(),
+    /** Reporte Mensual (por obra y período): cifras declaradas a Higiene y Seguridad. */
+    reporte: jsonb().$type<DatosReporteMensual>(),
     estado: text().$type<"borrador" | "emitido">().notNull().default("borrador"),
     /** Bloques de texto editables vigentes: { bloqueId: texto }. */
     bloques: jsonb().$type<Record<string, string>>().notNull(),
