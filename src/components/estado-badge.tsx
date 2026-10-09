@@ -1,4 +1,5 @@
 import { Percent } from "lucide-react";
+import { ESTADOS_ADICIONAL, type EstadoAdicional } from "@/domain/adicionales";
 import { ESTADOS, type Estado } from "@/domain/workflow";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,22 @@ export function BonificadoBadge() {
     <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary-text">
       <Percent className="size-3" aria-hidden />
       Bonificado
+    </span>
+  );
+}
+
+const ESTILO_ADICIONAL: Record<EstadoAdicional, string> = {
+  borrador: "bg-muted text-foreground",
+  enviado: "bg-warning/15 text-warning",
+  aprobado: "bg-success/15 text-success",
+  rechazado: "bg-rose-800/15 text-rose-800 dark:text-rose-300",
+  cancelado: "bg-muted text-muted-foreground line-through",
+};
+
+export function EstadoAdicionalBadge({ estado }: { estado: EstadoAdicional }) {
+  return (
+    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap", ESTILO_ADICIONAL[estado])}>
+      {ESTADOS_ADICIONAL[estado]}
     </span>
   );
 }

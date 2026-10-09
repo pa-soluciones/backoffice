@@ -3,21 +3,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { BonificadoBadge, EstadoBadge } from "@/components/estado-badge";
+import { BonificadoBadge, EstadoAdicionalBadge, EstadoBadge } from "@/components/estado-badge";
 import { Migas } from "@/components/migas";
 import { buttonVariants } from "@/components/ui/button";
 import { UNIDADES } from "@/domain/items";
 import { formatearMonto } from "@/domain/montos";
 import { alcanceDe } from "@/domain/permisos";
 import { destinos, ESTADOS, esFinal, type Estado } from "@/domain/workflow";
+import { listarAdicionales } from "@/services/adicionales";
 import { responsablesDeVisitas } from "@/services/agenda";
 import { documentosEmitidos } from "@/services/documentos";
 import { ErrorNegocio } from "@/services/errores";
 import { obtenerPresupuesto, opcionesUsuarios } from "@/services/presupuestos";
 import { esAdmin, getPermisos, requirePermiso } from "@/services/sesion";
+import { accionGuardarItems } from "../actions";
 import { AccionesEstado, Reabrir } from "../_componentes/acciones-estado";
 import { ComercialesForm } from "../_componentes/comerciales-form";
 import { ItemsEditor } from "../_componentes/items-editor";
+import { BotonCrearAdicional } from "../_componentes/adicional";
 import { Descargas } from "../_componentes/descargas";
 import { BotonesRevision } from "../_componentes/revisiones";
 import { AgendarVisita, ResolverVisita } from "../_componentes/visitas";
@@ -52,12 +55,13 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
     if (e instanceof ErrorNegocio) notFound();
     throw e;
   }
-  const [permisos, admin, usuarios, responsables, docs] = await Promise.all([
+  const [permisos, admin, usuarios, responsables, docs, adicionales] = await Promise.all([
     getPermisos(usuario.id),
     esAdmin(usuario.id),
     opcionesUsuarios(),
     responsablesDeVisitas(p.visitas.map((v) => v.id)),
     documentosEmitidos(id),
+    listarAdicionales(id),
   ]);
   const puede = (m: Parameters<typeof alcanceDe>[1], a: Parameters<typeof alcanceDe>[2]) => !!alcanceDe(permisos, m, a);
   const cerrado = esFinal(p.estado);
@@ -124,7 +128,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
       >
         {editableItems ? (
           <ItemsEditor
-            presupuestoId={p.id}
+            guardar={accionGuardarItems.bind(null, p.id)}
             inicial={p.items.map((i) => ({ ...i, precioUnitario: i.precioUnitario ?? 0, descripcion: i.descripcionManual ? i.descripcion : null }))}
             moneda={p.moneda}
             bonificacion={p.bonificacion}
@@ -204,6 +208,29 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
         )}
         {vence && p.estado === "en_espera" && <p className="text-sm text-muted-foreground">Oferta válida hasta el {fecha.format(vence)}.</p>}
       </Seccion>
+
+      {(adicionales.length > 0 || ["en_progreso", "pendiente_liquidacion"].includes(p.estado)) && (
+        <Seccion
+          titulo="Trabajos adicionales"
+          accion={["en_progreso", "pendiente_liquidacion"].includes(p.estado) && puede("presupuestos", "escribir") ? <BotonCrearAdicional presupuestoId={p.id} /> : null}
+        >
+          {adicionales.length === 0 ? (
+            <p className="rounded-xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">Sin trabajos adicionales.</p>
+          ) : (
+            <ul className="divide-y rounded-xl border bg-card text-sm">
+              {adicionales.map((a) => (
+                <li key={a.id}>
+                  <Link href={`/presupuestos/${p.id}/adicionales/${a.id}`} className="flex flex-wrap items-center gap-3 p-3 hover:bg-muted/60">
+                    <span className="font-mono font-semibold tabular-nums">{a.codigo}</span>
+                    <EstadoAdicionalBadge estado={a.estado} />
+                    {a.total != null && <span className="ml-auto tabular-nums">{formatearMonto(a.total, p.moneda)}</span>}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Seccion>
+      )}
 
       {(p.requiereVisita || p.visitas.length > 0) && puede("agenda", "leer") && (
         <Seccion titulo="Visitas técnicas" accion={!cerrado && puede("agenda", "escribir") ? <AgendarVisita presupuestoId={p.id} direccion={p.obra?.direccion ?? null} usuarios={usuarios} /> : null}>

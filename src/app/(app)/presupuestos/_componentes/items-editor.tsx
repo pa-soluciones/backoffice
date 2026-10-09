@@ -6,7 +6,6 @@ import { MensajeError } from "@/components/form";
 import { Button } from "@/components/ui/button";
 import { descripcionAuto, ELEMENTOS, TIPOS_SERVICIO, UNIDADES, type TipoServicio, type Unidad } from "@/domain/items";
 import { calcularTotales, formatearMonto, type Bonificacion, type Moneda } from "@/domain/montos";
-import { accionGuardarItems } from "../actions";
 
 type Fila = {
   tipoServicio: TipoServicio;
@@ -34,14 +33,15 @@ const control = "h-10 w-full rounded-lg border border-input bg-card px-2 text-ba
 const n = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")));
 
 export function ItemsEditor({
-  presupuestoId,
+  guardar,
   inicial,
   moneda,
   bonificacion,
   incluyeIva,
   ivaPct,
 }: {
-  presupuestoId: string;
+  /** Server action ya ligada al presupuesto o adicional. */
+  guardar: (json: string) => Promise<{ error?: string; ok?: string } | undefined>;
   inicial: Fila[];
   moneda: Moneda;
   bonificacion: Bonificacion;
@@ -170,7 +170,7 @@ export function ItemsEditor({
           {estado.ok}
         </p>
       )}
-      <Button type="button" size="lg" disabled={pending} onClick={() => start(async () => setEstado(await accionGuardarItems(presupuestoId, JSON.stringify(filas))))}>
+      <Button type="button" size="lg" disabled={pending} onClick={() => start(async () => setEstado(await guardar(JSON.stringify(filas))))}>
         {pending ? "Guardando…" : "Guardar ítems"}
       </Button>
     </div>

@@ -5,6 +5,14 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { ELEMENTOS, TIPOS_SERVICIO, UNIDADES } from "@/domain/items";
 import { ESTADOS, type Estado } from "@/domain/workflow";
+import {
+  cambiarEstadoAdicional,
+  crearAdicional,
+  emitirAdicional,
+  guardarCondicionesAdicional,
+  guardarItemsAdicional,
+} from "@/services/adicionales";
+import { ESTADOS_ADICIONAL, type EstadoAdicional } from "@/domain/adicionales";
 import { agendarVisita, resolverVisita } from "@/services/agenda";
 import { descargar, guardarBloques, restaurarVersion } from "@/services/documentos";
 import { proponerBloque } from "@/services/ia";
@@ -183,7 +191,7 @@ export async function accionResolverVisita(presupuestoId: string, visitaId: stri
 
 export async function accionGuardarBloques(
   documentoId: string,
-  presupuestoId: string,
+  ruta: string,
   json: string,
   origen: "usuario" | "ia" = "usuario",
 ): Promise<Estado_ & { version?: number }> {
@@ -191,7 +199,7 @@ export async function accionGuardarBloques(
   if (!r.success) return { error: "Datos inválidos." };
   try {
     const version = await guardarBloques(documentoId, r.data, origen === "ia" ? "ia" : "usuario");
-    revalidatePath(`/presupuestos/${presupuestoId}/documento`);
+    revalidatePath(ruta);
     return { ok: "Guardado.", version };
   } catch (e) {
     if (e instanceof ErrorNegocio) return { error: e.message };
@@ -199,10 +207,10 @@ export async function accionGuardarBloques(
   }
 }
 
-export async function accionRestaurarVersion(documentoId: string, presupuestoId: string, nro: number): Promise<Estado_ & { bloques?: Record<string, string> }> {
+export async function accionRestaurarVersion(documentoId: string, ruta: string, nro: number): Promise<Estado_ & { bloques?: Record<string, string> }> {
   try {
     const bloques = await restaurarVersion(documentoId, nro);
-    revalidatePath(`/presupuestos/${presupuestoId}/documento`);
+    revalidatePath(ruta);
     return { ok: `Versión ${nro} restaurada.`, bloques };
   } catch (e) {
     if (e instanceof ErrorNegocio) return { error: e.message };
@@ -234,4 +242,47 @@ export async function accionProponerIA(
     if (e instanceof ErrorNegocio) return { error: e.message };
     throw e;
   }
+}
+
+// ── Adicionales ───────────────────────────────────────────────────────────────
+
+export async function accionCrearAdicional(presupuestoId: string): Promise<Estado_> {
+  return ejecutar(async () => `/presupuestos/${presupuestoId}/adicionales/${await crearAdicional(presupuestoId)}`, [`/presupuestos/${presupuestoId}`]);
+}
+
+const rutaAdicional = (presupuestoId: string, id: string) => `/presupuestos/${presupuestoId}/adicionales/${id}`;
+
+export async function accionGuardarItemsAdicional(presupuestoId: string, id: string, json: string): Promise<Estado_> {
+  const r = z.array(itemSchema).max(200).safeParse(JSON.parse(json));
+  if (!r.success) return { error: primerError(r) };
+  return ejecutar(() => guardarItemsAdicional(id, r.data), [rutaAdicional(presupuestoId, id), `/presupuestos/${presupuestoId}`]);
+}
+
+export async function accionCondicionesAdicional(presupuestoId: string, id: string, _: Estado_, fd: FormData): Promise<Estado_> {
+  const r = z
+    .object({
+      validezDias: z.coerce.number().int().min(1, "La validez tiene que ser de al menos 1 día."),
+      anticipoPct: z.coerce.number().min(0).max(100),
+      mantieneBonificacion: z.literal("on").optional().transform(Boolean),
+    })
+    .safeParse(Object.fromEntries(fd));
+  if (!r.success) return { error: primerError(r) };
+  return ejecutar(() => guardarCondicionesAdicional(id, r.data), [rutaAdicional(presupuestoId, id)]);
+}
+
+export async function accionEmitirAdicional(presupuestoId: string, id: string): Promise<Estado_> {
+  let cod = "";
+  const r = await ejecutar(async () => {
+    cod = await emitirAdicional(id);
+  }, [rutaAdicional(presupuestoId, id), `/presupuestos/${presupuestoId}`]);
+  return r?.error ? r : { ok: `Emitido ${cod}.` };
+}
+
+export async function accionEstadoAdicional(presupuestoId: string, id: string, _: Estado_, fd: FormData): Promise<Estado_> {
+  const hasta = String(fd.get("hasta")) as EstadoAdicional;
+  if (!(hasta in ESTADOS_ADICIONAL)) return { error: "Estado inválido." };
+  return ejecutar(
+    () => cambiarEstadoAdicional(id, hasta, String(fd.get("motivo") ?? "").trim() || null),
+    [rutaAdicional(presupuestoId, id), `/presupuestos/${presupuestoId}`],
+  );
 }
