@@ -17,6 +17,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
     "@base-ui/react": "^1.8.0",
+    "@modelcontextprotocol/server": "^2.3.1",
     "aws4fetch": "^1.0.20",
     "better-auth": "^1.7.7",
     "class-variance-authority": "^0.7.1",
@@ -24,6 +25,7 @@
     "docxtemplater": "^3.71.0",
     "drizzle-orm": "^0.45.3",
     "lucide-react": "^1.52.0",
+    "mcp-handler": "^2.3.0",
     "next": "16.4.0",
     "pizzip": "^3.3.0",
     "postgres": "^3.4.9",
