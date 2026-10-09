@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Campo, MensajeError } from "@/components/form";
+import { Plegable } from "@/components/plegable";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ESTADOS_COBRO, MEDIOS, type EstadoCobro } from "@/domain/cobros";
@@ -98,7 +99,11 @@ export function Cobros({
         </div>
       )}
 
-      {puedeRegistrar && <FormCobro presupuestoId={presupuestoId} moneda={moneda} esperados={esperados} />}
+      {puedeRegistrar && (
+        <Plegable titulo="Nuevo cobro" abierto={esperados.some((e) => e.estado !== "abonado")}>
+          <FormCobro presupuestoId={presupuestoId} moneda={moneda} esperados={esperados} />
+        </Plegable>
+      )}
     </div>
   );
 }
@@ -145,7 +150,6 @@ function FormCobro({ presupuestoId, moneda, esperados }: { presupuestoId: string
   return (
     // key: tras registrar un cobro cambia lo imputado y el formulario vuelve a sus valores propuestos.
     <form key={esperados.map((e) => e.imputado).join()} onSubmit={onSubmit} className="space-y-3 rounded-xl border bg-card p-4">
-      <h3 className="text-sm font-semibold">Registrar cobro</h3>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="concepto">Concepto</Label>

@@ -15,7 +15,7 @@ const hoyAR = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argent
  * Gasto (spec/08 RF-GAS-01/02). Con `codigo` (Campo) va a la cola offline; sin él se guarda directo.
  * `presupuestoId` null = gasto general de la empresa.
  */
-export function FormGasto({ presupuestoId, categorias, codigo }: { presupuestoId: string | null; categorias: { id: string; nombre: string }[]; codigo?: string }) {
+export function FormGasto({ presupuestoId, categorias, codigo, sinTitulo }: { presupuestoId: string | null; categorias: { id: string; nombre: string }[]; codigo?: string; sinTitulo?: boolean }) {
   const [moneda, setMoneda] = useState<"ARS" | "USD">("ARS");
   const [r, setR] = useState<{ error?: string; ok?: string }>();
   const [vuelta, setVuelta] = useState(0);
@@ -49,7 +49,7 @@ export function FormGasto({ presupuestoId, categorias, codigo }: { presupuestoId
         });
       }}
     >
-      <h3 className="text-sm font-semibold">{presupuestoId ? "Cargar gasto" : "Cargar gasto general"}</h3>
+      {!sinTitulo && <h3 className="text-sm font-semibold">{presupuestoId ? "Cargar gasto" : "Cargar gasto general"}</h3>}
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="gasto-categoria">Categoría</Label>

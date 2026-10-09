@@ -17,7 +17,39 @@ export function TablaBalance({
 }) {
   if (filas.length === 0) return <p className="rounded-xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">Sin perforaciones cotizadas ni registradas.</p>;
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
+    <>
+    {/* Mobile: una tarjeta por diámetro. */}
+    <ul className="divide-y rounded-xl border bg-card text-sm sm:hidden">
+      {filas.map((f) => {
+        const e = etiquetaDiferencia(f.diferencia);
+        const avance = f.cotizadas ? Math.min(100, Math.round((f.ejecutadas / f.cotizadas) * 100)) : 100;
+        return (
+          <li key={f.diametroMm} className="space-y-1.5 p-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-semibold">Ø {f.diametroMm} mm</span>
+              <span className="tabular-nums">
+                <strong>{f.ejecutadas}</strong> de {f.cotizadas}
+              </span>
+            </div>
+            <span className="block h-1.5 rounded-full bg-muted" aria-hidden>
+              <span className="block h-full rounded-full bg-primary" style={{ width: `${avance}%` }} />
+            </span>
+            <p className={`text-xs font-semibold ${TONO[e.tono]}`}>
+              {e.texto}
+              {verMontos && f.precioUnitario != null && f.diferencia ? ` · ${formatearMonto(f.diferencia * f.precioUnitario, moneda)}` : ""}
+            </p>
+          </li>
+        );
+      })}
+      <li className="flex justify-between p-3 font-semibold">
+        <span>Totales</span>
+        <span className="tabular-nums">
+          {totales.ejecutadas} de {totales.cotizadas} ({totales.diferencia > 0 ? "+" : ""}
+          {totales.diferencia})
+        </span>
+      </li>
+    </ul>
+    <div className="hidden overflow-x-auto rounded-xl border bg-card sm:block">
       <table className="w-full text-sm">
         <thead className="border-b text-left text-xs text-muted-foreground">
           <tr>
@@ -63,5 +95,6 @@ export function TablaBalance({
         </tfoot>
       </table>
     </div>
+    </>
   );
 }

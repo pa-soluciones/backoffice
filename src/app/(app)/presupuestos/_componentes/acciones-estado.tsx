@@ -16,7 +16,7 @@ export function AccionesEstado({ id, destinos, hoy }: { id: string; destinos: Es
   const [hasta, setHasta] = useState<Estado | "">("");
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-xl border bg-card p-4">
+    <form onSubmit={onSubmit} className="space-y-3">
       <div className="space-y-1.5">
         <Label htmlFor="hasta">Pasar a</Label>
         <select
@@ -45,7 +45,7 @@ export function AccionesEstado({ id, destinos, hoy }: { id: string; destinos: Es
         />
       )}
       <MensajeError error={estado?.error} />
-      <Button type="submit" disabled={pending || !hasta}>
+      <Button type="submit" className="w-full" disabled={pending || !hasta}>
         {pending ? "Guardando…" : "Cambiar estado"}
       </Button>
     </form>
@@ -55,7 +55,7 @@ export function AccionesEstado({ id, destinos, hoy }: { id: string; destinos: Es
 export function Reabrir({ id }: { id: string }) {
   const [estado, onSubmit, pending] = useAccion(accionReabrir.bind(null, id), undefined);
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-xl border bg-card p-4">
+    <form onSubmit={onSubmit} className="space-y-3">
       <AreaTexto label="Motivo para reabrir" name="motivo" required rows={2} />
       <MensajeError error={estado?.error} />
       <Button type="submit" variant="outline" disabled={pending}>

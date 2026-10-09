@@ -60,7 +60,7 @@ export function EditorDocumento({
   const [bloques, setBloques] = useState(inicial);
   const [guardado, setGuardado] = useState(inicial);
   const [activo, setActivo] = useState<string | null>(null);
-  const [vista, setVista] = useState<"editar" | "previa">("editar");
+  const [vista, setVista] = useState<"editar" | "previa">(editable ? "editar" : "previa");
   const [estado, setEstado] = useState<{ error?: string; ok?: string }>();
   const [pending, start] = useTransition();
   const campos = useRef<Record<string, HTMLTextAreaElement | null>>({});

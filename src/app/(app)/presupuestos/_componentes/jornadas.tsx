@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Campo, MensajeError } from "@/components/form";
+import { Plegable } from "@/components/plegable";
 import { Button } from "@/components/ui/button";
 import { useAccion } from "@/hooks/use-accion";
 import { accionEliminarJornada, accionPlanificarJornada } from "../actions";
@@ -26,8 +27,8 @@ export function Jornadas({ presupuestoId, jornadas, usuarios, editable }: { pres
         </ul>
       )}
       {editable && (
+        <Plegable titulo="Nueva jornada">
         <form onSubmit={onSubmit} className="space-y-3 rounded-xl border bg-card p-4">
-          <h3 className="text-sm font-semibold">Planificar jornada</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <Campo id="jornada-fecha" label="Fecha" name="fecha" type="date" required min={hoyAR()} />
             <Campo id="jornada-notas" label="Notas" name="notas" maxLength={300} placeholder="Pisos 10 al 6, llevar grupo electrógeno" />
@@ -48,6 +49,7 @@ export function Jornadas({ presupuestoId, jornadas, usuarios, editable }: { pres
             Planificar
           </Button>
         </form>
+        </Plegable>
       )}
     </div>
   );
