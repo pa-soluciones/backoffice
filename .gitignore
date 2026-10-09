@@ -43,3 +43,7 @@ next-env.d.ts
 
 # herramientas locales
 .markdown-collab/
+
+# playwright
+/test-results/
+/playwright-report/
