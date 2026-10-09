@@ -13,7 +13,7 @@ createServer((req, res) => {
       b.fallbacks !== "default" && "falta fallbacks",
       b.output_config?.effort !== "low" && "effort",
       !b.model?.startsWith("claude-") && "modelo",
-      !b.messages?.[0]?.content?.includes("Datos del presupuesto") && "contexto",
+      !b.messages?.[0]?.content?.includes("Datos del documento") && "contexto",
     ].filter(Boolean);
     if (errores.length) {
       res.writeHead(400, { "content-type": "application/json" });
@@ -26,7 +26,14 @@ createServer((req, res) => {
         type: "message",
         role: "assistant",
         model: b.model,
-        content: [{ type: "text", text: "Garantía de **12 meses** sobre la mano de obra, desde la finalización de los trabajos." }],
+        content: [
+          {
+            type: "text",
+            text: b.messages[0].content.includes("cotizadas")
+              ? "Se ejecutaron todas las perforaciones de Ø 152 mm previstas en el período, sin interferencias."
+              : "Garantía de **12 meses** sobre la mano de obra, desde la finalización de los trabajos.",
+          },
+        ],
         stop_reason: "end_turn",
         stop_sequence: null,
         usage: { input_tokens: 1200, output_tokens: 60 },
