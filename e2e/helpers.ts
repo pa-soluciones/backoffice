@@ -6,7 +6,7 @@ export const sql = postgres(TEST_DB, { onnotice: () => {} });
 
 /** Deja la base de test sin usuarios ni límites (el admin se recrea al abrir /login). */
 export async function resetearBase() {
-  await sql`truncate "user", roles, rate_limit, verification, numeracion_anual, r2_uso_mensual, archivos cascade`;
+  await sql`truncate "user", roles, rate_limit, verification, numeracion_anual, r2_uso_mensual, archivos, stock_movimientos, compras, articulos, proveedores, gastos cascade`;
   await sql`delete from configuracion where clave in ('firma_empresa', 'ia')`;
 }
 
