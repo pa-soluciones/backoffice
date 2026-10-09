@@ -13,7 +13,7 @@ import { reservarAlmacenamiento, reservarOperaciones } from "./cuota-r2";
 
 export const MAX_BYTES = 30 * 1024 * 1024; // spec/06 RF-ANX-02
 
-type Meta = { nombre: string; mime: string; entidadTipo?: string; entidadId?: string; categoria?: string; descripcion?: string; createdBy?: string };
+type Meta = { nombre: string; mime: string; entidadTipo?: string; entidadId?: string; categoria?: string; descripcion?: string; tomadaAt?: Date; createdBy?: string };
 
 function exigirConfigurado() {
   if (!r2.configurado()) throw new ErrorNegocio("El almacenamiento de archivos (Cloudflare R2) todavía no está configurado. Avisale a un administrador.");

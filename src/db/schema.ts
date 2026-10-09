@@ -329,6 +329,48 @@ export const estadoHistorial = pgTable(
   (t) => [index().on(t.presupuestoId, t.at)],
 );
 
+// ── Campo (spec/07) ───────────────────────────────────────────────────────────
+
+export const registrosCampo = pgTable(
+  "registros_campo",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    presupuestoId: uuid()
+      .notNull()
+      .references(() => presupuestos.id),
+    itemId: uuid().references(() => items.id, { onDelete: "set null" }),
+    fecha: date().notNull(),
+    piso: text().notNull(),
+    elemento: text().notNull(),
+    tipoServicio: text().notNull().default("perforacion"),
+    espesorCm: numeric({ precision: 8, scale: 1 }),
+    diametroMm: numeric({ precision: 8, scale: 1 }),
+    unidad: text().notNull().default("u"),
+    cantidad: numeric({ precision: 12, scale: 2 }).notNull(),
+    estado: text().$type<"finalizado" | "parcial" | "con_observacion">().notNull().default("finalizado"),
+    observacion: text(),
+    /** UUID generado en el dispositivo: reintentos de la cola offline no duplican (spec/12 RNF-05). */
+    clientId: uuid().unique(),
+    createdBy: uuid().references(() => user.id),
+    createdAt: ts(),
+    updatedAt: ts(),
+  },
+  (t) => [index().on(t.presupuestoId, t.fecha)],
+);
+
+export const registroOperarios = pgTable(
+  "registro_operarios",
+  {
+    registroId: uuid()
+      .notNull()
+      .references(() => registrosCampo.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => user.id),
+  },
+  (t) => [primaryKey({ columns: [t.registroId, t.userId] })],
+);
+
 export const visitas = pgTable(
   "visitas",
   {
@@ -380,6 +422,8 @@ export const archivos = pgTable(
     entidadId: text(),
     categoria: text(),
     descripcion: text(),
+    /** Momento de la foto (EXIF o del dispositivo); puede ser anterior a la subida si se cargó sin conexión. */
+    tomadaAt: timestamp({ withTimezone: true }),
     createdBy: uuid().references(() => user.id),
     createdAt: ts(),
     deletedAt: timestamp({ withTimezone: true }),
