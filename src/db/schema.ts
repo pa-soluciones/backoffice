@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   bigserial,
   boolean,
   date,
@@ -331,3 +332,40 @@ export const visitaResponsables = pgTable(
   },
   (t) => [primaryKey({ columns: [t.visitaId, t.userId] })],
 );
+
+// ── Archivos en R2 y cuota del free tier ──────────────────────────────────────
+
+/** Cada objeto guardado en R2. Lo pendiente (subida en curso) también reserva espacio. */
+export const archivos = pgTable(
+  "archivos",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    r2Key: text().notNull().unique(),
+    nombre: text().notNull(),
+    mime: text().notNull(),
+    bytes: bigint({ mode: "number" }).notNull(),
+    sha256: text(),
+    estado: text().$type<"pendiente" | "ok">().notNull().default("pendiente"),
+    entidadTipo: text(),
+    entidadId: text(),
+    categoria: text(),
+    descripcion: text(),
+    createdBy: uuid().references(() => user.id),
+    createdAt: ts(),
+    deletedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [index().on(t.entidadTipo, t.entidadId)],
+);
+
+export const r2UsoMensual = pgTable("r2_uso_mensual", {
+  /** "2026-10" (mes UTC, como factura Cloudflare). */
+  mes: text().primaryKey(),
+  opsA: bigint({ mode: "number" }).notNull().default(0),
+  opsB: bigint({ mode: "number" }).notNull().default(0),
+  /** Límites ampliados por un admin para este mes: { almacenamiento?, opsA?, opsB? }. */
+  aprobado: jsonb(),
+  aprobadoPor: uuid().references(() => user.id),
+  aprobadoAt: timestamp({ withTimezone: true }),
+  /** Recursos ya avisados a los admins este mes (para no repetir el email). */
+  avisados: jsonb().$type<string[]>().notNull().default([]),
+});

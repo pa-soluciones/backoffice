@@ -50,6 +50,13 @@
       "when": 1791520033263,
       "tag": "0006_presupuestos",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791521777693,
+      "tag": "0007_archivos_cuota_r2",
+      "breakpoints": true
     }
   ]
 }
