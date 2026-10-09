@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
+  cambiarCorreo,
   cambiarPassword,
   confirmar2fa,
   finalizarSiCorresponde,
@@ -13,7 +14,7 @@ import {
 } from "@/services/configuracion-inicial";
 import { requireSesion } from "@/services/sesion";
 
-export type Estado = { error?: string } | undefined;
+export type Estado = { error?: string; enviado?: boolean } | undefined;
 
 const primerError = (r: z.ZodSafeParseError<unknown>) => r.error.issues[0]?.message ?? "Datos inválidos.";
 
@@ -71,7 +72,13 @@ export async function accionReenviar(): Promise<Estado> {
   } catch {
     return { error: "No se pudo enviar el email." };
   }
-  return undefined;
+  return { enviado: true };
+}
+
+export async function accionCambiarCorreo() {
+  const u = await requireSesion();
+  await cambiarCorreo(u);
+  redirect("/configuracion-inicial");
 }
 
 export type Estado2fa = { error?: string; qr?: string; secreto?: string; backupCodes?: string[] } | undefined;

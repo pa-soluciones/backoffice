@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { db } from "@/db";
@@ -84,6 +84,19 @@ export async function guardarRecuperacion(u: Usuario, frase: string, email: stri
     });
   await enviarCodigo(u, email);
   await auditar({ actorUserId: u.id, action: "usuario.recuperacion_configurada", entityType: "usuario", entityId: u.id });
+}
+
+/** Email de recuperación pendiente de verificar (para mostrarlo en el paso). */
+export async function emailPendiente(u: Usuario) {
+  const [rs] = await db.select({ email: recoverySecrets.email }).from(recoverySecrets).where(eq(recoverySecrets.userId, u.id));
+  return rs?.email ?? "";
+}
+
+/** Vuelve al paso de recuperación para corregir el correo (solo si todavía no se verificó). */
+export async function cambiarCorreo(u: Usuario) {
+  await db.delete(recoverySecrets).where(and(eq(recoverySecrets.userId, u.id), isNull(recoverySecrets.emailVerificadoAt)));
+  await db.delete(verification).where(eq(verification.identifier, idVerif(u.id)));
+  await auditar({ actorUserId: u.id, action: "usuario.email_recuperacion_cambiado", entityType: "usuario", entityId: u.id });
 }
 
 export async function reenviarCodigo(u: Usuario) {

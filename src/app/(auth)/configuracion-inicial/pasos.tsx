@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  accionCambiarCorreo,
   accionConfirmar2fa,
   accionIniciar2fa,
   accionPassword,
@@ -77,11 +78,14 @@ export function PasoRecuperacion() {
   );
 }
 
-export function PasoVerificarEmail() {
+export function PasoVerificarEmail({ email }: { email: string }) {
   const [s, action, pending] = useAccion(accionVerificarEmail, undefined);
   const [r, reenviar, reenviando] = useActionState(accionReenviar, undefined);
   return (
     <div className="space-y-4">
+      <p className="rounded-lg bg-muted px-3 py-2 text-sm">
+        Enviado a <strong className="break-all">{email}</strong>
+      </p>
       <form onSubmit={action} className="space-y-4">
         <Campo
           label="Código"
@@ -93,11 +97,21 @@ export function PasoVerificarEmail() {
           className="text-center font-heading text-lg tracking-[0.3em]"
         />
         <Error msg={s?.error ?? r?.error} />
+        {r?.enviado && !s?.error && (
+          <p role="status" className="text-sm text-success">
+            Código reenviado. Revisá también la carpeta de spam.
+          </p>
+        )}
         <Enviar pending={pending}>Verificar</Enviar>
       </form>
       <form action={reenviar}>
         <button type="submit" disabled={reenviando} className="w-full text-center text-sm text-primary-text hover:underline">
           {reenviando ? "Enviando…" : "Reenviar código"}
+        </button>
+      </form>
+      <form action={accionCambiarCorreo}>
+        <button type="submit" className="w-full text-center text-sm text-muted-foreground hover:underline">
+          ¿El correo está mal? Cambiar correo
         </button>
       </form>
     </div>

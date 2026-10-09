@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { pasoActual, type Paso } from "@/services/configuracion-inicial";
+import { emailPendiente, pasoActual, type Paso } from "@/services/configuracion-inicial";
 import { requireSesion } from "@/services/sesion";
 import { Paso2fa, PasoPassword, PasoRecuperacion, PasoVerificarEmail } from "./pasos";
 
@@ -50,7 +50,7 @@ async function Contenido() {
       <p className="mt-1 mb-6 text-sm text-muted-foreground">{ayuda}</p>
       {paso === "password" && <PasoPassword />}
       {paso === "recuperacion" && <PasoRecuperacion />}
-      {paso === "verificar-email" && <PasoVerificarEmail />}
+      {paso === "verificar-email" && <PasoVerificarEmail email={await emailPendiente(u)} />}
       {paso === "2fa" && <Paso2fa />}
     </>
   );

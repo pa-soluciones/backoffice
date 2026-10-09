@@ -35,11 +35,21 @@ test("primer inicio del admin y login con 2FA", async ({ page }) => {
   const frase = "corona naranja perfora losa los martes";
   await page.getByLabel("Frase de recuperación").fill(frase);
   await page.getByLabel("Repetir frase").fill(frase);
+  await page.getByLabel("Correo de recuperación").fill("recuperacoin@pas.test");
+  await page.getByRole("button", { name: "Enviar código" }).click();
+
+  // Correo mal escrito: se puede volver a cargarlo.
+  await expect(page.getByText("recuperacoin@pas.test")).toBeVisible();
+  await page.getByRole("button", { name: /Cambiar correo/ }).click();
+  await expect(page.getByRole("heading", { name: "Datos de recuperación" })).toBeVisible();
+  await page.getByLabel("Frase de recuperación").fill(frase);
+  await page.getByLabel("Repetir frase").fill(frase);
   await page.getByLabel("Correo de recuperación").fill("recuperacion@pas.test");
   await page.getByRole("button", { name: "Enviar código" }).click();
 
   // Paso 3: código por email (en test se fija a uno conocido).
   await expect(page.getByRole("heading", { name: "Verificá tu correo" })).toBeVisible();
+  await expect(page.getByText("recuperacion@pas.test")).toBeVisible();
   await fijarCodigoEmail("123456");
   await page.getByLabel("Código").fill("000000");
   await page.getByRole("button", { name: "Verificar" }).click();
