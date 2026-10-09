@@ -17,7 +17,11 @@ type Evento = {
 
 /** Registra un evento de auditoría con IP y user agent del request actual (spec/03 §6). */
 export async function auditar(e: Evento) {
-  const h = await headers().catch(() => null);
+  // Fuera de un request (cron, tests) no hay headers: se audita igual, sin IP.
+  let h: Awaited<ReturnType<typeof headers>> | null = null;
+  try {
+    h = await headers();
+  } catch {}
   await db.insert(auditLog).values({
     source: "ui",
     ...e,

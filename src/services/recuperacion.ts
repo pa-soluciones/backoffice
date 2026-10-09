@@ -3,10 +3,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { verifyPassword } from "better-auth/crypto";
 import { and, eq, gt, like, or } from "drizzle-orm";
 import { db } from "@/db";
-import { account, recoverySecrets, roles, session, twoFactor, user, userRoles, verification } from "@/db/schema";
+import { account, recoverySecrets, session, twoFactor, user, verification } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { enviarEmail } from "@/lib/email";
 import { auditar } from "./auditoria";
+import { emailAAdmins } from "./avisos";
 
 // Recuperación de acceso (spec/03 §3). Sin sesión: nunca revela si un usuario existe.
 
@@ -112,23 +113,13 @@ export async function restablecer(token: string, nueva: string, frase: string | 
 /** RF-AUTH-08: toda recuperación se notifica a los administradores. */
 async function avisarAdmins(userId: string, reset2fa: boolean) {
   const [afectado] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId));
-  const admins = await db
-    .select({ email: user.email, recEmail: recoverySecrets.email })
-    .from(user)
-    .innerJoin(userRoles, eq(userRoles.userId, user.id))
-    .innerJoin(roles, and(eq(roles.id, userRoles.roleId), eq(roles.esSistema, true)))
-    .leftJoin(recoverySecrets, eq(recoverySecrets.userId, user.id))
-    .where(eq(user.activo, true));
-  const destinos = [...new Set(admins.map((a) => a.recEmail ?? a.email))];
-  for (const to of destinos) {
-    await enviarEmail(to, "Alerta de seguridad · PAS Backoffice", {
-      categoria: "Alerta de seguridad",
-      titulo: "Se recuperó el acceso de una cuenta",
-      parrafos: [
-        `${afectado?.name ?? "Un usuario"} restableció su contraseña${reset2fa ? " y quitó su verificación en dos pasos" : ""}.`,
-        "Si no fue esa persona, desactivá el usuario desde Ajustes → Usuarios.",
-      ],
-      boton: { texto: "Ver auditoría", url: `${appUrl()}/ajustes/auditoria` },
-    }).catch(() => {}); // El aviso no debe impedir la recuperación.
-  }
+  await emailAAdmins("Alerta de seguridad · PAS Backoffice", {
+    categoria: "Alerta de seguridad",
+    titulo: "Se recuperó el acceso de una cuenta",
+    parrafos: [
+      `${afectado?.name ?? "Un usuario"} restableció su contraseña${reset2fa ? " y quitó su verificación en dos pasos" : ""}.`,
+      "Si no fue esa persona, desactivá el usuario desde Ajustes → Usuarios.",
+    ],
+    boton: { texto: "Ver auditoría", url: `${appUrl()}/ajustes/auditoria` },
+  });
 }
