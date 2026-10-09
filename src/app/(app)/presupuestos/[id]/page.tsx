@@ -16,6 +16,7 @@ import { listarAnexos } from "@/services/anexos";
 import { balancePresupuesto } from "@/services/campo";
 import { listarCertificaciones } from "@/services/certificaciones";
 import { listarCobros } from "@/services/cobros";
+import { disponiblesEnDeposito, materialesDelPresupuesto } from "@/services/stock";
 import { documentosEmitidos } from "@/services/documentos";
 import { ErrorNegocio } from "@/services/errores";
 import { obtenerPresupuesto, opcionesUsuarios } from "@/services/presupuestos";
@@ -29,6 +30,7 @@ import { Anexos } from "../_componentes/anexos";
 import { TablaBalance } from "../_componentes/balance";
 import { BotonNuevaCertificacion } from "../_componentes/certificacion";
 import { Cobros } from "../_componentes/cobros";
+import { Materiales } from "../_componentes/materiales";
 import { Descargas } from "../_componentes/descargas";
 import { BotonesRevision } from "../_componentes/revisiones";
 import { AgendarVisita, ResolverVisita } from "../_componentes/visitas";
@@ -67,7 +69,7 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
   }
   const permisos = await getPermisos(usuario.id);
   const puede = (m: Parameters<typeof alcanceDe>[1], a: Parameters<typeof alcanceDe>[2]) => !!alcanceDe(permisos, m, a);
-  const [admin, usuarios, responsables, docs, adicionales, anexos, balance, cobros, certificaciones] = await Promise.all([
+  const [admin, usuarios, responsables, docs, adicionales, anexos, balance, cobros, certificaciones, materiales, disponibles] = await Promise.all([
     esAdmin(usuario.id),
     opcionesUsuarios(),
     responsablesDeVisitas(p.visitas.map((v) => v.id)),
@@ -77,6 +79,8 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
     puede("campo", "leer") && ["en_progreso", "pendiente_liquidacion", "terminado"].includes(p.estado) ? balancePresupuesto(id) : null,
     puede("cobros", "leer") && p.verMontos ? listarCobros(id) : null,
     puede("documentos", "leer") && p.verMontos && EN_CURSO.includes(p.estado) ? listarCertificaciones(id) : null,
+    puede("stock", "leer") && EN_CURSO.includes(p.estado) ? materialesDelPresupuesto(id) : null,
+    puede("stock", "escribir") && p.estado === "en_progreso" ? disponiblesEnDeposito() : [],
   ]);
   const cerrado = esFinal(p.estado);
   const borrador = p.revisionActual?.estado === "borrador";
@@ -282,6 +286,12 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
       {cobros && (cobros.esperados.length > 0 || ["en_progreso", "pendiente_liquidacion", "terminado"].includes(p.estado)) && (
         <Seccion titulo="Cobros">
           <Cobros presupuestoId={p.id} moneda={p.moneda} {...cobros} puedeRegistrar={puede("cobros", "escribir")} puedeEliminar={puede("cobros", "eliminar")} />
+        </Seccion>
+      )}
+
+      {materiales && (
+        <Seccion titulo="Materiales">
+          <Materiales presupuestoId={p.id} {...materiales} disponibles={disponibles} editable={p.estado === "en_progreso" && puede("stock", "escribir")} />
         </Seccion>
       )}
 
