@@ -414,3 +414,22 @@ export const documentoVersiones = pgTable(
   },
   (t) => [uniqueIndex().on(t.documentoId, t.nro)],
 );
+
+// ── IA (spec/10 §5): registro de cada llamada para costos y tope mensual ──────
+
+export const iaUso = pgTable(
+  "ia_uso",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid().references(() => user.id),
+    funcion: text().notNull(),
+    modelo: text().notNull(),
+    tokensEntrada: integer().notNull(),
+    tokensSalida: integer().notNull(),
+    costoUsd: numeric({ precision: 10, scale: 6 }).notNull(),
+    ms: integer().notNull(),
+    documentoId: uuid().references(() => documentos.id),
+    at: ts(),
+  },
+  (t) => [index().on(t.at)],
+);
