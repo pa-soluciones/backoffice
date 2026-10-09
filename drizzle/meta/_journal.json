@@ -29,6 +29,20 @@
       "when": 1791511356881,
       "tag": "0003_audit_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791518703924,
+      "tag": "0004_f_unaccent",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791518707300,
+      "tag": "0005_clientes_obras",
+      "breakpoints": true
     }
   ]
 }

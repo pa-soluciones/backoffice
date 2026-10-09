@@ -1,7 +1,9 @@
+import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
   index,
+  uniqueIndex,
   jsonb,
   pgTable,
   primaryKey,
@@ -106,4 +108,71 @@ export const auditLog = pgTable(
     userAgent: text(),
   },
   (t) => [index().on(t.entityType, t.entityId, t.at), index().on(t.actorUserId, t.at)],
+);
+
+// ── Clientes, directores y obras (spec/04) ────────────────────────────────────
+// f_unaccent: wrapper inmutable de unaccent (migración 0004) para indexar búsquedas sin acentos.
+const norm = (col: string) => sql.raw(`f_unaccent(lower(${col}))`);
+
+const auditoriaCols = {
+  createdAt: ts(),
+  updatedAt: ts(),
+  createdBy: uuid().references(() => user.id),
+  deletedAt: timestamp({ withTimezone: true }),
+};
+
+export const clientes = pgTable(
+  "clientes",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    razonSocial: text().notNull(),
+    cuit: text(),
+    telefono: text(),
+    email: text(),
+    notas: text(),
+    archivado: boolean().notNull().default(false),
+    ...auditoriaCols,
+  },
+  () => [
+    uniqueIndex("clientes_razon_social_uq").on(norm("razon_social")).where(sql`deleted_at is null`),
+    index("clientes_razon_social_trgm").using("gin", sql`${norm("razon_social")} gin_trgm_ops`),
+  ],
+);
+
+export const directoresObra = pgTable(
+  "directores_obra",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    nombre: text().notNull(),
+    telefono: text(),
+    email: text(),
+    empresa: text(),
+    notas: text(),
+    ...auditoriaCols,
+  },
+  () => [index("directores_nombre_trgm").using("gin", sql`${norm("nombre")} gin_trgm_ops`)],
+);
+
+export const obras = pgTable(
+  "obras",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    clienteId: uuid()
+      .notNull()
+      .references(() => clientes.id),
+    nombre: text(),
+    /** Como se imprime en los documentos: "Av. Córdoba 1234, CABA". */
+    direccion: text().notNull(),
+    localidad: text(),
+    provincia: text(),
+    directorId: uuid().references(() => directoresObra.id),
+    hysNombre: text(),
+    notas: text(),
+    ...auditoriaCols,
+  },
+  (t) => [
+    index().on(t.clienteId),
+    index().on(t.directorId),
+    index("obras_direccion_trgm").using("gin", sql`${norm("direccion")} gin_trgm_ops`),
+  ],
 );
