@@ -32,6 +32,7 @@ export default defineConfig({
         R2_ACCESS_KEY_ID: "pas",
         R2_SECRET_ACCESS_KEY: "local",
         R2_BUCKET: "pas-backoffice",
+        CRON_SECRET: "cron-e2e",
       },
     },
   ],
