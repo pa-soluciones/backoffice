@@ -67,7 +67,7 @@ export async function enviarEmail(to: string, asunto: string, contenido: Conteni
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM ?? "PAS Backoffice <notificaciones@pasoluciones.com.ar>",
+      from: process.env.EMAIL_FROM ?? "PAS Backoffice <notificaciones@backoffice.pasoluciones.com.ar>",
       to,
       subject: asunto,
       html: renderEmail(contenido),
