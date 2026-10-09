@@ -20,6 +20,7 @@ import { alcanceDe } from "@/domain/permisos";
 import { esFinal, validarTransicion, type Estado } from "@/domain/workflow";
 import { auditar } from "./auditoria";
 import { generarAnticipo, generarSaldo, situacionDePagos } from "./cobros";
+import { materialesSinCerrar } from "./stock";
 import { defaultsPresupuesto, siguienteNumero } from "./configuracion";
 import { generarArchivos } from "./documentos";
 import { ErrorNegocio } from "./errores";
@@ -455,6 +456,7 @@ export async function cambiarEstado(id: string, hasta: Estado, datos: { motivo?:
     fechaConfirmacion: datos.fechaConfirmacion,
     motivo: datos.motivo,
     saldoPendiente: hasta === "terminado" ? (await situacionDePagos(id)).porCobrar : 0,
+    materialesSinCerrar: hasta === "pendiente_liquidacion" ? await materialesSinCerrar(id) : 0,
   });
   if (error) throw new ErrorNegocio(error);
 

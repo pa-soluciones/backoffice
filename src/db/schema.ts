@@ -215,6 +215,8 @@ export const presupuestos = pgTable(
     bonifValor: numeric({ precision: 14, scale: 4 }),
     fechaConfirmacion: date(),
     motivoCierre: text(),
+    /** Resumen económico congelado al pasar a Terminado (spec/08 RF-RES-01). */
+    resumenFinal: jsonb(),
     // Prospecto (puede no tener cliente todavía).
     contactoNombre: text(),
     contactoTelefono: text(),
@@ -370,6 +372,98 @@ export const cobros = pgTable(
     createdAt: ts(),
   },
   (t) => [index().on(t.cobroEsperadoId)],
+);
+
+// ── Stock, compras y gastos (spec/08 §1–2) ────────────────────────────────────
+
+export const proveedores = pgTable("proveedores", {
+  id: uuid().primaryKey().defaultRandom(),
+  nombre: text().notNull(),
+  cuit: text(),
+  telefono: text(),
+  email: text(),
+  notas: text(),
+  createdAt: ts(),
+});
+
+export const articulos = pgTable("articulos", {
+  id: uuid().primaryKey().defaultRandom(),
+  nombre: text().notNull(),
+  categoria: text().notNull(),
+  unidad: text().notNull().default("u"),
+  /** Ø, marca, modelo… */
+  atributos: jsonb().$type<Record<string, string>>().notNull().default({}),
+  stockMinimo: numeric({ precision: 12, scale: 3 }),
+  costoPromedioArs: monto().notNull().default("0"),
+  notas: text(),
+  activo: boolean().notNull().default(true),
+  createdAt: ts(),
+});
+
+export const compras = pgTable("compras", {
+  id: uuid().primaryKey().defaultRandom(),
+  fecha: date().notNull(),
+  proveedorId: uuid().references(() => proveedores.id),
+  destinoPresupuestoId: uuid().references(() => presupuestos.id),
+  moneda: text().$type<"ARS" | "USD">().notNull(),
+  tipoCambio: numeric({ precision: 14, scale: 4 }),
+  total: monto().notNull(),
+  comprobanteArchivoId: uuid().references(() => archivos.id),
+  createdBy: uuid().references(() => user.id),
+  createdAt: ts(),
+});
+
+export const stockMovimientos = pgTable(
+  "stock_movimientos",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    articuloId: uuid()
+      .notNull()
+      .references(() => articulos.id),
+    tipo: text().$type<"compra" | "asignacion" | "devolucion" | "consumo" | "ajuste" | "baja">().notNull(),
+    cantidad: numeric({ precision: 12, scale: 3 }).notNull(),
+    /** "deposito", un presupuesto_id o un extremo externo ("proveedor", "consumido", "baja", "ajuste"). */
+    desde: text().notNull(),
+    hacia: text().notNull(),
+    /** Costo unitario en ARS al momento del movimiento (valoriza consumos). */
+    costoUnitarioArs: monto().notNull(),
+    compraId: uuid().references(() => compras.id),
+    motivo: text(),
+    fecha: date().notNull(),
+    clientId: uuid().unique(),
+    createdBy: uuid().references(() => user.id),
+    createdAt: ts(),
+  },
+  (t) => [index().on(t.articuloId), index().on(t.desde), index().on(t.hacia)],
+);
+
+export const categoriasGasto = pgTable("categorias_gasto", {
+  id: uuid().primaryKey().defaultRandom(),
+  nombre: text().notNull().unique(),
+  activa: boolean().notNull().default(true),
+});
+
+export const gastos = pgTable(
+  "gastos",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    fecha: date().notNull(),
+    /** null = gasto general de la empresa. */
+    presupuestoId: uuid().references(() => presupuestos.id),
+    categoriaId: uuid()
+      .notNull()
+      .references(() => categoriasGasto.id),
+    descripcion: text().notNull(),
+    importe: monto().notNull(),
+    moneda: text().$type<"ARS" | "USD">().notNull(),
+    tipoCambio: numeric({ precision: 14, scale: 4 }),
+    proveedorId: uuid().references(() => proveedores.id),
+    comprobanteArchivoId: uuid().references(() => archivos.id),
+    clientId: uuid().unique(),
+    createdBy: uuid().references(() => user.id),
+    createdAt: ts(),
+  },
+  (t) => [index().on(t.presupuestoId), index().on(t.fecha)],
 );
 
 // ── Campo (spec/07) ───────────────────────────────────────────────────────────
