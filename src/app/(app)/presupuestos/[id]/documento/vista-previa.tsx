@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { Parrafo } from "@/domain/bloques";
 import type { DocAdicional } from "@/documents/adicional";
+import type { DocControl } from "@/documents/control";
 import type { DocPresupuesto } from "@/documents/presupuesto";
 import { cn } from "@/lib/utils";
 
@@ -50,7 +51,22 @@ function Titulo({ n, children }: { n?: number; children: React.ReactNode }) {
 }
 
 /** Hoja con encabezado gris (logo, datos, cliente) y pie de contacto. */
-function Hoja({ campos, cliente, director, direccion, children }: { campos: [string, string][]; cliente: string; director: string; direccion: string; children: React.ReactNode }) {
+function Hoja({
+  campos,
+  cliente,
+  director,
+  direccion,
+  cierre = true,
+  children,
+}: {
+  campos: [string, string][];
+  cliente: string;
+  director: string;
+  direccion: string;
+  /** "Sin otro particular… Atentamente." (las cartas; el control termina en firmas). */
+  cierre?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <article
       className="mx-auto w-full max-w-[794px] bg-white font-[family-name:var(--font-poppins)] text-[12.5px] leading-relaxed font-normal text-[#1a1a1a] shadow-lg"
@@ -85,9 +101,13 @@ function Hoja({ campos, cliente, director, direccion, children }: { campos: [str
       </header>
       <div className="space-y-3 px-10 py-6 text-justify">
         {children}
-        <p className="pt-4">Sin otro particular,</p>
-        <p>Saludamos a Uds.</p>
-        <p className="pt-6 text-right">Atentamente.</p>
+        {cierre && (
+          <>
+            <p className="pt-4">Sin otro particular,</p>
+            <p>Saludamos a Uds.</p>
+            <p className="pt-6 text-right">Atentamente.</p>
+          </>
+        )}
       </div>
       <footer className="flex flex-wrap items-end justify-between gap-2 px-8 py-4 text-[10.5px] text-white" style={{ background: GRIS }}>
         <div>
@@ -240,6 +260,82 @@ export function VistaPreviaAdicional({ d, activo, onElegir }: Editable & { d: Do
       <Bloque id="observaciones" {...e}>
         <Texto ps={b("observaciones")} lista />
       </Bloque>
+    </Hoja>
+  );
+}
+
+function Tabla({ cabecera, filas, pie }: { cabecera: string[]; filas: string[][]; pie?: string[] }) {
+  return (
+    <table className="w-full border-collapse text-center text-[11px]">
+      <thead>
+        <tr className="text-white" style={{ background: NARANJA_TABLA }}>
+          {cabecera.map((c) => (
+            <th key={c} className="p-1.5 font-semibold">
+              {c}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {filas.map((f, i) => (
+          <tr key={i} style={{ background: i % 2 ? undefined : DURAZNO }}>
+            {f.map((v, k) => (
+              <td key={k} className="border p-1.5" style={{ borderColor: NARANJA_TABLA }}>
+                {v}
+              </td>
+            ))}
+          </tr>
+        ))}
+        {pie && (
+          <tr className="font-bold text-white" style={{ background: NARANJA_TABLA }}>
+            {pie.map((v, k) => (
+              <td key={k} className="p-1.5">
+                {v}
+              </td>
+            ))}
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+export function VistaPreviaControl({ d, activo, onElegir }: Editable & { d: DocControl }) {
+  const b = bloquesDe(d);
+  const e = { activo, onElegir };
+  return (
+    <Hoja campos={[["Control y Balance de Perforaciones:", d.resumen]]} cliente={d.cliente} director={d.director} direccion={d.direccion} cierre={false}>
+      <div className="grid grid-cols-3 gap-2 text-[11.5px]">
+        <p>Empresa: Piedra Angular Solutions</p>
+        <p>Operador: {d.operadores}</p>
+        <p>Fecha: {d.fecha}</p>
+      </div>
+      <Bloque id="subtitulo" {...e}>
+        <Titulo>{d.subtitulo_texto}</Titulo>
+      </Bloque>
+      <Tabla
+        cabecera={["PISO", "UBICACIÓN", "ESPESOR", "DIÁMETRO (Ø)", "CANT.", "ESTADO / OBSERVACIÓN"]}
+        filas={d.registros.map((r) => [r.piso, r.elemento, r.espesor, r.diametro, r.cantidad, r.estado])}
+      />
+      <Titulo>Total Ejecutado ({d.rango_pisos})</Titulo>
+      <Tabla cabecera={["DIÁMETRO", "EJECUTADO"]} filas={d.ejecutado.map((x) => [x.diametro, x.texto])} pie={["TOTAL DE UNIDADES EJECUTADAS", d.total_ejecutado]} />
+      <Titulo>Balance General y Cuadro Comparativo</Titulo>
+      <Tabla
+        cabecera={["DIÁMETRO (Ø)", "COTIZADAS", "EJECUTADAS", "BALANCE / DIFERENCIA"]}
+        filas={d.balance.map((x) => [x.diametro, x.cotizadas, x.ejecutadas, x.diferencia])}
+        pie={["TOTALES", d.total_cotizadas, d.total_ejecutadas, d.total_diferencia]}
+      />
+      <Titulo>Observaciones</Titulo>
+      <Bloque id="observaciones" {...e}>
+        <Texto ps={b("observaciones")} />
+      </Bloque>
+      <Bloque id="conclusiones" {...e}>
+        <Texto ps={b("conclusiones")} lista />
+      </Bloque>
+      <div className="grid grid-cols-2 gap-10 pt-16 text-center text-[11px] font-semibold">
+        <p className="border-t border-[#1a1a1a] pt-1">FIRMA RESPONSABLE / OPERADOR</p>
+        <p className="border-t border-[#1a1a1a] pt-1">FIRMA / CONFORMIDAD INSPECCIÓN</p>
+      </div>
     </Hoja>
   );
 }

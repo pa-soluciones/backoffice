@@ -1,4 +1,4 @@
-import { HardHat, ImageOff } from "lucide-react";
+import { FileText, HardHat, ImageOff } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,10 +8,12 @@ import { buttonVariants } from "@/components/ui/button";
 import { alturaPiso, ESTADOS_REGISTRO } from "@/domain/balance";
 import { alcanceDe } from "@/domain/permisos";
 import { balancePresupuesto, contextoCarga, listarRegistros, urlsFotos } from "@/services/campo";
+import { listarControles } from "@/services/documentos";
 import { ErrorNegocio } from "@/services/errores";
 import { obtenerPresupuesto } from "@/services/presupuestos";
 import { getPermisos, requirePermiso } from "@/services/sesion";
 import { BotonCrearAdicional } from "../../_componentes/adicional";
+import { BotonNuevoControl } from "../../_componentes/control";
 import { TablaBalance } from "../../_componentes/balance";
 import { RegistroAcciones } from "../../_componentes/registro-acciones";
 
@@ -40,6 +42,8 @@ async function Contenido({ params, searchParams }: { params: Promise<{ id: strin
   const puedeCargar = !!alcanceDe(permisos, "campo", "escribir");
   const enCurso = ["en_progreso", "pendiente_liquidacion"].includes(p.estado);
   const ctx = puedeCargar ? await contextoCarga(id).catch(() => null) : null;
+  const puedeDocs = !!alcanceDe(permisos, "documentos", "leer");
+  const controles = puedeDocs ? await listarControles(id) : [];
   const urls = await urlsFotos(id, registros.flatMap((r) => r.fotos.map((f) => f.id)));
   const excedentes = b.filas.filter((f) => f.diferencia > 0);
   const codigo = p.codigo ?? "Sin numerar";
@@ -73,6 +77,32 @@ async function Contenido({ params, searchParams }: { params: Promise<{ id: strin
           </div>
         )}
       </section>
+
+      {puedeDocs && (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="min-w-0 flex-1 text-lg font-semibold">Controles de perforaciones</h2>
+            {["en_progreso", "pendiente_liquidacion", "terminado"].includes(p.estado) && alcanceDe(permisos, "documentos", "escribir") && <BotonNuevoControl presupuestoId={id} />}
+          </div>
+          {controles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Todavía no se emitió ningún control.</p>
+          ) : (
+            <ul className="divide-y rounded-xl border bg-card text-sm">
+              {controles.map((c) => (
+                <li key={c.id}>
+                  <Link href={`/presupuestos/${id}/controles/${c.id}`} className="flex min-h-12 items-center gap-3 p-3 hover:bg-muted">
+                    <FileText className="size-4 text-muted-foreground" aria-hidden />
+                    <span className="min-w-0 flex-1 font-mono font-semibold">
+                      {codigo}-CP{c.nro}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{c.estado === "emitido" && c.emitidoAt ? `Emitido ${fechaCorta.format(c.emitidoAt)}` : "Borrador"}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">

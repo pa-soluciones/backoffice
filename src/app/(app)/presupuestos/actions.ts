@@ -15,7 +15,7 @@ import {
 import { ESTADOS_ADICIONAL, type EstadoAdicional } from "@/domain/adicionales";
 import { agendarVisita, resolverVisita } from "@/services/agenda";
 import { confirmarAnexo, eliminarAnexo, prepararAnexo, urlAnexo } from "@/services/anexos";
-import { descargar, guardarBloques, restaurarVersion } from "@/services/documentos";
+import { crearControl, descargar, emitirControl, fijarAlcanceControl, guardarBloques, restaurarVersion } from "@/services/documentos";
 import { proponerBloque } from "@/services/ia";
 import type { AccionIA } from "@/domain/ia";
 import { ErrorNegocio } from "@/services/errores";
@@ -313,4 +313,25 @@ export async function accionUrlAnexo(archivoId: string) {
 
 export async function accionEliminarAnexo(presupuestoId: string, archivoId: string): Promise<Estado_> {
   return ejecutar(() => eliminarAnexo(archivoId), [`/presupuestos/${presupuestoId}`]);
+}
+
+// ── Control de perforaciones ──────────────────────────────────────────────────
+
+const rutaControl = (presupuestoId: string, id: string) => `/presupuestos/${presupuestoId}/controles/${id}`;
+
+export async function accionCrearControl(presupuestoId: string): Promise<Estado_> {
+  return ejecutar(async () => rutaControl(presupuestoId, await crearControl(presupuestoId)), [`/presupuestos/${presupuestoId}/campo`]);
+}
+
+export async function accionAlcanceControl(presupuestoId: string, id: string, _: Estado_, fd: FormData): Promise<Estado_> {
+  const fecha = (k: string) => (/^\d{4}-\d{2}-\d{2}$/.test(String(fd.get(k))) ? String(fd.get(k)) : null);
+  return ejecutar(() => fijarAlcanceControl(id, fecha("desde"), fecha("hasta")), [rutaControl(presupuestoId, id)]);
+}
+
+export async function accionEmitirControl(presupuestoId: string, id: string): Promise<Estado_> {
+  let cod = "";
+  const r = await ejecutar(async () => {
+    cod = await emitirControl(id);
+  }, [rutaControl(presupuestoId, id), `/presupuestos/${presupuestoId}/campo`]);
+  return r?.error ? r : { ok: `Emitido ${cod}.` };
 }
