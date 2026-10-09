@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN } from "../playwright.config";
-import { crearPresupuestoConItem, ponerEnProgreso, primerInicioAdmin, resetearBase, sql } from "./helpers";
+import { crearPresupuestoConItem, ponerEnProgreso, pestana, primerInicioAdmin, resetearBase, sql } from "./helpers";
 
 // spec/05 RF-AGE-05 y spec/06 §3.6: jornadas en la agenda y Reporte Mensual precargado.
 test("jornadas y reporte mensual", async ({ page }) => {
@@ -14,7 +14,9 @@ test("jornadas y reporte mensual", async ({ page }) => {
 
   // Jornada para mañana → aparece en la agenda.
   const manana = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(new Date(Date.now() + 86_400_000));
+  await pestana(page, "Obra");
   const jornadas = page.locator("section").filter({ has: page.getByRole("heading", { name: "Jornadas de trabajo" }) });
+  await jornadas.getByText("Nueva jornada").click();
   await jornadas.getByLabel("Fecha").fill(manana);
   await jornadas.getByLabel("Notas").fill("Pisos 10 al 6");
   await jornadas.getByLabel("Administrador").check();
@@ -35,7 +37,7 @@ test("jornadas y reporte mensual", async ({ page }) => {
   const [j] = await sql`insert into jornadas (presupuesto_id, fecha) values (${id}, ${`${mes}-05`}) returning id`;
   await sql`insert into jornada_operarios (jornada_id, user_id) values (${j.id}, ${uid})`;
 
-  await page.goto(`/presupuestos/${id}`);
+  await page.goto(`/presupuestos/${id}?tab=obra`);
   await page.getByRole("link", { name: "Reportes mensuales" }).click();
   await expect(page.getByLabel("Mes a reportar")).toHaveValue(mes);
   await page.getByRole("button", { name: "Preparar reporte" }).click();

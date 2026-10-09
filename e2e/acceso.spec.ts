@@ -67,7 +67,7 @@ test("primer inicio del admin y login con 2FA", async ({ page }) => {
   await page.getByRole("button", { name: "Activar y terminar" }).click();
 
   // Asistente completo → inicio.
-  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^(Buen día|Buenas tardes|Buenas noches), / })).toBeVisible();
   const [u] = await sql`select must_complete_setup, must_change_password, two_factor_enabled from "user"`;
   expect(u).toEqual({ must_complete_setup: false, must_change_password: false, two_factor_enabled: true });
 
@@ -80,7 +80,7 @@ test("primer inicio del admin y login con 2FA", async ({ page }) => {
   await expect(page).toHaveURL(/\/login\/2fa$/);
   await page.getByLabel("Código").fill(totp(secreto));
   await page.getByRole("button", { name: "Verificar" }).click();
-  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^(Buen día|Buenas tardes|Buenas noches), / })).toBeVisible();
 
   // Auditoría registró los pasos.
   const acciones = (await sql`select action from audit_log order by id`).map((r) => r.action);

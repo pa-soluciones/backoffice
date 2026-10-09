@@ -38,10 +38,12 @@ test("gastos: carga offline desde Campo, consumo de material y gasto en USD", as
   await expect(page.getByText("Todo sincronizado")).toBeVisible({ timeout: 20_000 });
 
   // En el presupuesto: el gasto, el consumo y un gasto en dólares.
-  await page.goto(`/presupuestos/${id}`);
+  await page.goto(`/presupuestos/${id}?tab=obra`);
+  await expect(page.getByRole("list", { name: "Materiales en obra" })).toContainText("3 u");
+  await page.goto(`/presupuestos/${id}?tab=dinero`);
   const gastos = page.locator("section").filter({ has: page.getByRole("heading", { name: "Gastos" }) });
   await expect(gastos.getByText("Nafta camioneta")).toBeVisible();
-  await expect(page.getByRole("list", { name: "Materiales en obra" })).toContainText("3 u");
+  await gastos.getByText("Nuevo gasto").click();
 
   await gastos.getByLabel("Categoría").selectOption({ label: "Alquiler de equipos" });
   await gastos.getByLabel("Descripción").fill("Alquiler de grupo electrógeno");

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { ADMIN } from "../playwright.config";
-import { crearPresupuestoConItem, primerInicioAdmin, resetearBase, sql } from "./helpers";
+import { crearPresupuestoConItem, pestana, primerInicioAdmin, resetearBase, sql } from "./helpers";
 
 // spec/06 §7: anexos del presupuesto. Suben directo a R2 y se verifica el contenido real.
 test("anexos: subir foto y PDF, rechazar archivo disfrazado y eliminar", async ({ page }) => {
@@ -10,6 +10,7 @@ test("anexos: subir foto y PDF, rechazar archivo disfrazado y eliminar", async (
   page.on("dialog", (d) => d.accept());
   await primerInicioAdmin(page, ADMIN);
   await crearPresupuestoConItem(page);
+  await pestana(page, "Archivos");
 
   await expect(page.getByText("Sin archivos adjuntos.")).toBeVisible();
   await page.getByLabel("Categoría").selectOption("Plano");

@@ -56,7 +56,7 @@ export async function primerInicioAdmin(page: import("@playwright/test").Page, a
   const secreto = (await page.locator("code").textContent())!.trim();
   await page.getByLabel("Código de la app").fill(totp(secreto));
   await page.getByRole("button", { name: "Activar y terminar" }).click();
-  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^(Buen día|Buenas tardes|Buenas noches), / })).toBeVisible();
   return { password: nueva, secreto };
 }
 
@@ -90,4 +90,11 @@ export async function ponerEnProgreso(page: import("@playwright/test").Page) {
   await page.getByLabel("Pasar a").selectOption({ label: "En progreso" });
   await page.getByRole("button", { name: "Cambiar estado" }).click();
   await expect(page.getByLabel("Pasar a").locator("option", { hasText: "En progreso" })).toHaveCount(0);
+}
+
+/** Pestaña del detalle del presupuesto ("Presupuesto", "Obra", "Cobros y gastos", "Archivos", "Historial"). */
+export async function pestana(page: import("@playwright/test").Page, nombre: "Presupuesto" | "Obra" | "Cobros y gastos" | "Archivos" | "Historial") {
+  await page.getByRole("navigation", { name: "Secciones del presupuesto" }).getByRole("link", { name: new RegExp(`^${nombre}`) }).click();
+  const { expect } = await import("@playwright/test");
+  await expect(page).toHaveURL(new RegExp(`tab=`));
 }

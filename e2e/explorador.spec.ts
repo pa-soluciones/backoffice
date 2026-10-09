@@ -40,6 +40,7 @@ test("explorador: cliente, obra con director nuevo, duplicados y buscador", asyn
 
   // Buscador: sin acentos, por director y con un error de tipeo.
   await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible(); // el atajo se registra al hidratar
   await page.keyboard.press("Control+k");
   const buscador = page.getByRole("combobox", { name: "Buscar" });
   await buscador.fill("cordoba");

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN } from "../playwright.config";
-import { crearPresupuestoConItem, ponerEnProgreso, primerInicioAdmin, resetearBase, sql } from "./helpers";
+import { crearPresupuestoConItem, pestana, ponerEnProgreso, primerInicioAdmin, resetearBase, sql } from "./helpers";
 
 // spec/08 §1 y criterios de aceptación: promedio ponderado, asignación, cierre obligatorio.
 test("stock: compras con promedio, asignación a obra y cierre de materiales", async ({ page }) => {
@@ -34,6 +34,7 @@ test("stock: compras con promedio, asignación a obra y cierre de materiales", a
   // Obra en progreso: asignar 5.
   await crearPresupuestoConItem(page);
   await ponerEnProgreso(page);
+  await pestana(page, "Obra");
   const materiales = page.locator("section").filter({ has: page.getByRole("heading", { name: "Materiales" }) });
   await materiales.getByRole("button", { name: "Asignar del depósito" }).click();
   await materiales.getByLabel("Artículo 1", { exact: true }).selectOption({ label: "Corona Ø102 (hay 20 u)" });

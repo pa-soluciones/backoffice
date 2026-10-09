@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN } from "../playwright.config";
-import { crearPresupuestoConItem, ponerEnProgreso, primerInicioAdmin, resetearBase, sql } from "./helpers";
+import { crearPresupuestoConItem, ponerEnProgreso, pestana, primerInicioAdmin, resetearBase, sql } from "./helpers";
 
 // spec/06 §3.3: certificación de obra con cantidades desde campo, tope en lo cotizado,
 // situación de pagos desde cobros y saldo en letras.
@@ -14,6 +14,7 @@ test("certificación de obra: parcial desde lo ejecutado, final y emisión", asy
   const id = page.url().split("/").at(-1)!;
 
   // Anticipo cobrado ($604.800) y 6 perforaciones ejecutadas.
+  await pestana(page, "Cobros y gastos");
   const cobros = page.locator("section").filter({ has: page.getByRole("heading", { name: "Cobros" }) });
   await cobros.getByRole("button", { name: "Registrar cobro" }).click();
   await expect(cobros.getByText("ABONADO")).toBeVisible();
@@ -49,6 +50,6 @@ test("certificación de obra: parcial desde lo ejecutado, final y emisión", asy
   await page.getByRole("button", { name: "PDF" }).click();
   expect((await bajada).suggestedFilename()).toMatch(/^PAS - Certificación \d{4}-0001-C1 - Constructora Ejemplo\.pdf$/);
 
-  await page.goto(`/presupuestos/${id}`);
+  await page.goto(`/presupuestos/${id}?tab=dinero`);
   await expect(page.getByRole("link", { name: /-C1.*Final · Emitida.*1\.512\.000,00/ })).toBeVisible();
 });

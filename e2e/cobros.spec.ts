@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN } from "../playwright.config";
-import { crearPresupuestoConItem, ponerEnProgreso, primerInicioAdmin, resetearBase, sql } from "./helpers";
+import { crearPresupuestoConItem, ponerEnProgreso, pestana, primerInicioAdmin, resetearBase, sql } from "./helpers";
 
 // spec/08 §3: anticipo al pasar a En progreso, saldo en Pendiente liquidación, cobro en otra moneda
 // y paso automático a Terminado al cancelar el saldo (spec/05 criterio de aceptación).
@@ -11,6 +11,7 @@ test("cobros: anticipo, parcial, saldo en dólares y cierre automático", async 
   await primerInicioAdmin(page, ADMIN);
   await crearPresupuestoConItem(page); // 9 × $168.000 = $1.512.000
   await ponerEnProgreso(page);
+  await pestana(page, "Cobros y gastos");
 
   const cobros = page.locator("section").filter({ has: page.getByRole("heading", { name: "Cobros" }) });
   await expect(cobros.getByRole("listitem").filter({ hasText: /^Anticipo del 40% sobre el presupuesto original/ })).toBeVisible();

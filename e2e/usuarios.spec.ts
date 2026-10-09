@@ -43,7 +43,7 @@ test("admin gestiona usuarios y roles; operario sin acceso a ajustes", async ({ 
   await page.getByLabel("Nueva contraseña", { exact: true }).fill("clave-del-operario-1");
   await page.getByLabel("Repetir nueva contraseña").fill("clave-del-operario-1");
   await page.getByRole("button", { name: "Continuar" }).click();
-  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^(Buen día|Buenas tardes|Buenas noches), / })).toBeVisible();
   await page.goto("/ajustes/usuarios");
   await expect(page.getByRole("heading", { name: "No tenés permiso" })).toBeVisible();
 

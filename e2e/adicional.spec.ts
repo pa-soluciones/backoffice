@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN } from "../playwright.config";
-import { crearPresupuestoConItem, primerInicioAdmin, resetearBase, sql } from "./helpers";
+import { crearPresupuestoConItem, pestana, primerInicioAdmin, resetearBase, sql } from "./helpers";
 
 // spec/05 §4: adicional sobre un presupuesto en curso, con su documento y su flujo de estados.
 test("trabajo adicional: ítems, emisión con documento y aprobación", async ({ page }) => {
@@ -59,5 +59,6 @@ test("trabajo adicional: ítems, emisión con documento y aprobación", async ({
   await page.getByRole("link", { name: /^\d{4}\/0001$/ }).click();
   await expect(page.getByRole("link", { name: /AD1.*Aprobado.*1\.030\.000,00/ })).toBeVisible();
   // Sin anticipo: se cobra todo contra certificación (spec/05 RF-ADI-04).
+  await pestana(page, "Cobros y gastos");
   await expect(page.getByRole("listitem").filter({ hasText: /^Trabajos adicionales \d{4}\/0001-AD1/ })).toContainText("$ 1.030.000,00");
 });

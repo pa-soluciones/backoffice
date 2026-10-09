@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN } from "../playwright.config";
-import { crearPresupuestoConItem, ponerEnProgreso, primerInicioAdmin, resetearBase, sql } from "./helpers";
+import { crearPresupuestoConItem, ponerEnProgreso, pestana, primerInicioAdmin, resetearBase, sql } from "./helpers";
 
 // spec/08 §4: resumen económico proyectado → congelado al terminar, y finanzas de la empresa.
 test("resumen económico y finanzas", async ({ page }) => {
@@ -22,6 +22,7 @@ test("resumen económico y finanzas", async ({ page }) => {
     (${a.id}, 'asignacion', 3, 'deposito', ${id}, 150, ${hoy}), (${a.id}, 'consumo', 3, ${id}, 'consumido', 150, ${hoy})`;
 
   await page.reload();
+  await pestana(page, "Cobros y gastos");
   const resumen = page.locator("section").filter({ has: page.getByRole("heading", { name: "Resumen económico" }) });
   await expect(resumen).toContainText("Total a cobrar$ 1.512.000,00");
   await expect(resumen).toContainText("Combustible$ 12.000,00");
@@ -48,6 +49,7 @@ test("resumen económico y finanzas", async ({ page }) => {
   await expect(page.getByText("Egresos (compras y gastos)$ 12.000,00")).toBeVisible();
   await expect(page.getByRole("link", { name: /\d{4}\/0001.*Terminado.*99,2%/ })).toBeVisible();
 
+  await page.getByText("Nuevo gasto general").click();
   await page.getByLabel("Categoría").selectOption({ label: "Otros" });
   await page.getByLabel("Descripción").fill("Alquiler de oficina");
   await page.getByLabel("Importe").fill("50000");
