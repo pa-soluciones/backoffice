@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { MODULOS, type Permiso } from "@/domain/permisos";
+import { fijarProximoNumero, guardarDefaults } from "@/services/configuracion";
 import { actualizarRol, crearRol, eliminarRol } from "@/services/roles";
 import {
   actualizarUsuario,
@@ -129,4 +130,33 @@ export async function accionEliminarRol(id: string): Promise<Estado> {
   if (res?.error) return res;
   revalidatePath("/ajustes/roles");
   redirect("/ajustes/roles");
+}
+
+// ── Presupuestos: defaults y numeración ───────────────────────────────────────
+
+const defaultsSchema = z.object({
+  validezDias: z.coerce.number().int().min(1, "La validez tiene que ser de al menos 1 día."),
+  anticipoPct: z.coerce.number().min(0).max(100),
+  ivaPct: z.coerce.number().min(0).max(100),
+  formaContratacion: z.string().trim().min(1),
+  baseAjuste: z.string().trim().min(1),
+});
+
+export async function accionGuardarDefaults(_: Estado, fd: FormData): Promise<Estado> {
+  const r = defaultsSchema.safeParse(Object.fromEntries(fd));
+  if (!r.success) return { error: primerError(r) };
+  return ejecutar(async () => {
+    await guardarDefaults(r.data);
+    revalidatePath("/ajustes/presupuestos");
+    return { ok: true };
+  });
+}
+
+export async function accionFijarNumero(anio: number, _: Estado, fd: FormData): Promise<Estado> {
+  const proximo = Number(fd.get("proximo"));
+  return ejecutar(async () => {
+    await fijarProximoNumero(anio, proximo);
+    revalidatePath("/ajustes/presupuestos");
+    return { ok: true };
+  });
 }
