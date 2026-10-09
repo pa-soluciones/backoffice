@@ -9,11 +9,17 @@ test("admin recupera contraseña y 2FA con link y frase", async ({ page }) => {
   await primerInicioAdmin(page, ADMIN);
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
 
-  // Pedido: misma respuesta exista o no el usuario.
+  // Pedido con un error de tipeo: misma respuesta, y se puede volver a pedir con otro dato.
   await page.goto("/recuperar");
-  await page.getByLabel("Usuario o email").fill("admin");
+  await page.getByLabel("Usuario o email").fill("admni");
   await page.getByRole("button", { name: "Enviar link" }).click();
   await expect(page.getByText(/te enviamos un link/)).toBeVisible();
+  await expect(page.getByText("admni")).toBeVisible();
+  await page.getByRole("button", { name: "Probar con otro usuario o email" }).click();
+  await expect(page.getByLabel("Usuario o email")).toHaveValue("");
+  await page.getByLabel("Usuario o email").fill("admin");
+  await page.getByRole("button", { name: "Enviar link" }).click();
+  await expect(page.getByText("admin", { exact: true })).toBeVisible();
   const [{ n }] = await sql`select count(*)::int as n from verification where identifier like 'reset:%'`;
   expect(n).toBe(1);
 
