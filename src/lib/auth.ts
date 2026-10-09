@@ -6,9 +6,16 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 
+// URLs exactas que Vercel asigna a este deploy (preview, rama y producción).
+const urlsVercel = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]
+  .filter(Boolean)
+  .map((h) => `https://${h}`);
+
 // spec/03-auth-permisos.md
 export const auth = betterAuth({
   appName: "PAS Backoffice",
+  baseURL: process.env.BETTER_AUTH_URL ?? urlsVercel[0],
+  trustedOrigins: urlsVercel,
   database: drizzleAdapter(db, { provider: "pg", schema }),
   advanced: { database: { generateId: "uuid" } },
   // Sin registro público: los usuarios los crea un admin.
