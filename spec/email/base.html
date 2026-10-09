@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light only">
+  <title>{{asunto}}</title>
+  <!-- Clientes que soportan web fonts (Apple Mail, iOS). El resto usa el fallback. -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    @media only screen and (max-width: 620px) {
+      .container { width: 100% !important; }
+      .px { padding-left: 20px !important; padding-right: 20px !important; }
+      .code { font-size: 30px !important; letter-spacing: 8px !important; }
+    }
+  </style>
+</head>
+<!--
+  Plantilla base de emails de PAS Backoffice.
+  - Layout con tablas + estilos inline (compatibilidad Gmail/Outlook).
+  - Variables {{...}} → se reemplazan al implementarla en React Email (src/emails/).
+  - {{logo_url}}: PNG absoluto (los clientes de email no muestran SVG). Exportar spec/assets/logo-alt.svg a PNG 2x (ancho 320px) y servirlo desde /public/email/logo-alt.png.
+  - Bloques opcionales marcados con <!-- if:... --> se muestran según el tipo de email.
+  Este ejemplo está renderizado como "Código de verificación".
+-->
+<body style="margin:0; padding:0; background-color:#f2f4f6;">
+  <!-- Preheader (texto de vista previa en la bandeja) -->
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:#f2f4f6;">
+    {{preheader}} Tu código de verificación es 482 913.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f2f4f6;">
+    <tr>
+      <td align="center" style="padding:32px 12px;">
+
+        <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
+
+          <!-- Header oscuro con logo -->
+          <tr>
+            <td align="left" class="px" style="background-color:#1f2123; padding:24px 40px; border-radius:12px 12px 0 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="left">
+                    <img src="{{logo_url}}" width="120" alt="PAS · Piedra Angular Solutions" style="display:block; border:0; width:120px; height:auto; color:#f9f9f9; font-family:'Poppins',Arial,sans-serif; font-weight:700; font-size:18px;">
+                  </td>
+                  <td align="right" style="font-family:'Outfit',Arial,sans-serif; font-size:12px; color:#b5b5b5; text-transform:uppercase; letter-spacing:1px;">
+                    Backoffice
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Barra naranja de marca -->
+          <tr>
+            <td style="background-color:#f49600; height:4px; line-height:4px; font-size:0;">&nbsp;</td>
+          </tr>
+
+          <!-- Contenido -->
+          <tr>
+            <td class="px" style="background-color:#ffffff; padding:40px 40px 32px 40px;">
+
+              <!-- Etiqueta de categoría -->
+              <p style="margin:0 0 12px 0; font-family:'Poppins',Arial,sans-serif; font-size:12px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#9a5e00;">
+                {{categoria}} Seguridad de la cuenta
+              </p>
+
+              <!-- Título -->
+              <h1 style="margin:0 0 16px 0; font-family:'Poppins',Arial,sans-serif; font-size:24px; line-height:32px; font-weight:700; color:#1a1a1a;">
+                {{titulo}} Verificá tu correo de recuperación
+              </h1>
+
+              <!-- Cuerpo -->
+              <p style="margin:0 0 24px 0; font-family:'Outfit',Arial,sans-serif; font-size:16px; line-height:24px; color:#1a1a1a;">
+                {{cuerpo}} Hola {{nombre}}, ingresá este código en PAS Backoffice para confirmar que este correo te pertenece. Vence en 15 minutos.
+              </p>
+
+              <!-- if:codigo — Código de verificación -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">
+                <tr>
+                  <td align="center" style="background-color:#f2f4f6; border:1px solid #e1e1e1; border-radius:12px; padding:24px;">
+                    <span class="code" style="font-family:'Poppins',Arial,sans-serif; font-size:36px; font-weight:700; letter-spacing:12px; color:#1f2123;">
+                      482913
+                    </span>
+                  </td>
+                </tr>
+              </table>
+              <!-- /if:codigo -->
+
+              <!-- if:detalle — Tarjeta de detalle (ej. notificación de presupuesto) -->
+              <!--
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0; border:1px solid #e1e1e1; border-left:4px solid #f49600; border-radius:12px;">
+                <tr><td style="padding:16px 20px; font-family:'Outfit',Arial,sans-serif; font-size:14px; line-height:22px; color:#1a1a1a;">
+                  <strong style="font-family:'Poppins',Arial,sans-serif;">2026/0105</strong> · Constructora Ejemplo<br>
+                  Av. Córdoba 1234, CABA<br>
+                  <span style="color:#5f5e5e;">En espera → <strong style="color:#1a1a1a;">En progreso</strong></span>
+                </td></tr>
+              </table>
+              -->
+              <!-- /if:detalle -->
+
+              <!-- if:boton — CTA (estilo .btn-cta de la web) -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">
+                <tr>
+                  <td align="center" bgcolor="#f49600" style="border-radius:12px; background-color:#f49600;">
+                    <a href="{{boton_url}}" target="_blank"
+                       style="display:inline-block; padding:14px 28px; font-family:'Poppins',Arial,sans-serif; font-size:14px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#1f2123; text-decoration:none; border-radius:12px;">
+                      {{boton_texto}} Abrir PAS Backoffice
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <!-- /if:boton -->
+
+              <!-- Nota secundaria -->
+              <p style="margin:0; font-family:'Outfit',Arial,sans-serif; font-size:13px; line-height:20px; color:#5f5e5e;">
+                {{nota}} Si no solicitaste este código, ignorá este correo. Nadie de PAS te va a pedir este código por teléfono ni WhatsApp.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer oscuro -->
+          <tr>
+            <td class="px" style="background-color:#1f2123; padding:28px 40px; border-radius:0 0 12px 12px;">
+              <p style="margin:0 0 8px 0; font-family:'Poppins',Arial,sans-serif; font-size:13px; font-weight:600; color:#f9f9f9;">
+                Piedra Angular Solutions
+              </p>
+              <p style="margin:0 0 16px 0; font-family:'Outfit',Arial,sans-serif; font-size:13px; line-height:20px; color:#b5b5b5;">
+                Cortes y perforaciones en hormigón armado con tecnología diamantada · CABA y GBA
+              </p>
+              <p style="margin:0; font-family:'Outfit',Arial,sans-serif; font-size:13px; line-height:22px; color:#f9f9f9;">
+                <a href="https://wa.me/5491130144852" style="color:#f49600; text-decoration:none;">WhatsApp +54 9 11 3014-4852</a><br>
+                <a href="mailto:ventas@pasoluciones.com.ar" style="color:#f49600; text-decoration:none;">ventas@pasoluciones.com.ar</a><br>
+                <a href="https://www.pasoluciones.com.ar" style="color:#f49600; text-decoration:none;">www.pasoluciones.com.ar</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Legal -->
+          <tr>
+            <td align="center" style="padding:16px 12px; font-family:'Outfit',Arial,sans-serif; font-size:12px; line-height:18px; color:#5f5e5e;">
+              Este es un mensaje automático de PAS Backoffice. {{motivo_envio}}
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
