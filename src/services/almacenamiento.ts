@@ -14,11 +14,16 @@ export const MAX_BYTES = 30 * 1024 * 1024; // spec/06 RF-ANX-02
 
 type Meta = { nombre: string; mime: string; entidadTipo?: string; entidadId?: string; categoria?: string; createdBy?: string };
 
+function exigirConfigurado() {
+  if (!r2.configurado()) throw new ErrorNegocio("El almacenamiento de archivos (Cloudflare R2) todavía no está configurado. Avisale a un administrador.");
+}
+
 const nuevaKey = (nombre: string) => `${new Date().toISOString().slice(0, 7)}/${randomUUID()}-${nombre.replace(/[^\w.-]+/g, "_").slice(-80)}`;
 
 /** Subida desde el servidor (documentos generados, PDF). */
 export async function guardarArchivo(cuerpo: Uint8Array, meta: Meta) {
   if (cuerpo.byteLength > MAX_BYTES) throw new ErrorNegocio("El archivo supera los 30 MB.");
+  exigirConfigurado();
   await reservarOperaciones("opsA");
   const archivo = await reservarAlmacenamiento({
     ...meta,
@@ -39,6 +44,7 @@ export async function guardarArchivo(cuerpo: Uint8Array, meta: Meta) {
 /** Subida directa del navegador: reserva espacio con el tamaño declarado y devuelve la URL firmada. */
 export async function prepararSubida(bytes: number, meta: Meta) {
   if (bytes <= 0 || bytes > MAX_BYTES) throw new ErrorNegocio("El archivo supera los 30 MB.");
+  exigirConfigurado();
   await reservarOperaciones("opsA");
   const archivo = await reservarAlmacenamiento({ ...meta, r2Key: nuevaKey(meta.nombre), bytes });
   return { archivoId: archivo.id, url: await r2.urlSubidaFirmada(archivo.r2Key) };
