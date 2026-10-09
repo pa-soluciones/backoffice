@@ -61,3 +61,32 @@ test("campo: registrar con foto, en modo avión y ver el balance", async ({ page
   const acciones = await sql`select action from audit_log where action like 'campo.%' order by id`;
   expect(acciones.map((a) => a.action)).toEqual(["campo.registrar", "campo.registrar", "campo.registrar", "campo.editar", "campo.eliminar"]);
 });
+
+// spec/12 RNF-02/03: la obra se abre sin señal (página guardada por el service worker) y lo cargado se envía al volver.
+test("campo: abrir la obra y registrar sin conexión desde cero", async ({ page, context }) => {
+  test.setTimeout(120_000);
+  await resetearBase();
+  page.on("dialog", (d) => d.accept());
+  await primerInicioAdmin(page, ADMIN);
+  await crearPresupuestoConItem(page);
+  await ponerEnProgreso(page);
+  const id = page.url().split("/").at(-1)!;
+
+  await page.goto("/");
+  const url = `http://localhost:3100/campo/${id}`;
+  await expect.poll(() => page.evaluate((u) => caches.match(u).then(Boolean), url), { timeout: 30_000 }).toBe(true);
+
+  await context.setOffline(true);
+  await page.goto(`/campo/${id}`);
+  await expect(page.getByText(/^Sin conexión · 0 pendientes$/)).toBeVisible();
+  await page.getByLabel("Piso").fill("PB");
+  await page.getByLabel("Ø (mm)").fill("152");
+  await page.getByRole("button", { name: "Registrar" }).click();
+  await expect(page.getByText("Sin conexión · 1 pendiente")).toBeVisible();
+
+  await context.setOffline(false);
+  await page.goto("/campo");
+  await expect(page.getByText("Todo sincronizado")).toBeVisible({ timeout: 20_000 });
+  const regs = await sql`select piso from registros_campo`;
+  expect(regs.map((r) => r.piso)).toEqual(["PB"]);
+});
