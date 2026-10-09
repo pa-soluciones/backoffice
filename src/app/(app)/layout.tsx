@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { BottomNav } from "@/components/shell/bottom-nav";
 import { Buscador } from "@/components/shell/buscador";
 import { MenuUsuario } from "@/components/shell/menu-usuario";
+import { RegistrarSW } from "@/components/shell/registrar-sw";
 import { Sidebar } from "@/components/shell/sidebar";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
@@ -22,6 +23,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <main className="flex-1 px-4 pt-6 pb-24 md:px-6 md:pb-8">{children}</main>
       </div>
       <BottomNav />
+      <RegistrarSW />
     </div>
   );
 }
