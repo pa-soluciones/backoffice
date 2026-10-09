@@ -78,3 +78,16 @@ export async function crearPresupuestoConItem(page: import("@playwright/test").P
   await page.getByRole("button", { name: "Guardar ítems" }).click();
   await expect(page.getByText("Guardado.")).toBeVisible();
 }
+
+/** Desde el detalle de un presupuesto en borrador: emitir → En espera → En progreso. */
+export async function ponerEnProgreso(page: import("@playwright/test").Page) {
+  const { expect } = await import("@playwright/test");
+  await page.getByRole("button", { name: "Emitir presupuesto" }).click();
+  await expect(page.getByText(/^Emitido \d{4}\/\d{4}\.$/)).toBeVisible({ timeout: 30_000 });
+  await page.getByLabel("Pasar a").selectOption({ label: "En espera" });
+  await page.getByRole("button", { name: "Cambiar estado" }).click();
+  await expect(page.getByLabel("Pasar a").locator("option", { hasText: "En progreso" })).toHaveCount(1);
+  await page.getByLabel("Pasar a").selectOption({ label: "En progreso" });
+  await page.getByRole("button", { name: "Cambiar estado" }).click();
+  await expect(page.getByLabel("Pasar a").locator("option", { hasText: "En progreso" })).toHaveCount(0);
+}
