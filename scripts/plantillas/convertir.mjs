@@ -72,6 +72,15 @@ function fila(xml, marca, tagsPorCelda) {
   return xml.slice(0, f.index) + nueva + xml.slice(f.index + f[0].length);
 }
 
+/** Borra las filas de ejemplo (las que quedan después de convertir la primera en bucle). */
+function quitarFilas(xml, marcas) {
+  for (const marca of marcas) {
+    const f = [...xml.matchAll(/<w:tr[ >][\s\S]*?<\/w:tr>/g)].find((m) => parrafos(m[0]).some((p) => p.text.trim() === marca)) ?? falla(`no encontré la fila "${marca}"`);
+    xml = xml.slice(0, f.index) + xml.slice(f.index + f[0].length);
+  }
+  return xml;
+}
+
 /**
  * La imagen anclada en "Atentamente." (el logo) se nombra "firma": al generar, si la empresa
  * cargó su firma, src/documents/render.ts la reemplaza ahí.
@@ -155,6 +164,50 @@ convertir("Template Trabajo adicional.docx", "adicional.docx", {
         ["objeto", "Cotización de trabajos adicionales"],
         ["descripcion", "Ejecución de"],
         ["observaciones", "Los valores unitarios incluyen", "Validez de la presente"],
+      ],
+    });
+  },
+});
+
+// ── Control de perforaciones ──────────────────────────────────────────────────
+const PISOS_EJEMPLO = ["16", "15", "14", "13", "12", "11", "10", "9", "9", "8", "8", "7", "6", "5", "4", "3", "2"];
+convertir("Template control perforaciones.docx", "control.docx", {
+  "word/header1.xml": (x) =>
+    textos(x, [
+      ["&lt;Nombre Contratista&gt;", "{cliente}"],
+      ["&lt;Nombre director Obra&gt;", "{director}"],
+      ["&lt;Ubicación de Obra&gt;", "{direccion}"],
+      ["&lt;Resumen de Items&gt;", "{resumen}"],
+    ]),
+  "word/document.xml": (x) => {
+    x = textos(x, [
+      ["___________", "{operadores}"],
+      ["27/08/2026", "{fecha}"],
+      ["Total Ejecutado (Pisos 17 al 2)", "Total Ejecutado ({rango_pisos})"],
+    ]);
+    x = editarParrafos(x, { textos: [["Registro Detallado por Piso (Pisos 17 al 2)", "{subtitulo_texto}"]] });
+    x = fila(x, "Piso 17", ["{#registros}{piso}", "{elemento}", "{espesor}", "{diametro}", "{cantidad}", "{estado}{/registros}"]);
+    // Filas de ejemplo restantes: cada "Piso N" (una por aparición).
+    for (const piso of PISOS_EJEMPLO) x = quitarFilas(x, [`Piso ${piso}`]);
+    x = fila(x, "Ø 102 mm 24 unidades", ["{#ejecutado}{diametro}", "{texto}{/ejecutado}"]);
+    x = quitarFilas(x, ["Ø 152 mm"]);
+    x = fila(x, "TOTAL DE UNIDADES EJECUTADAS", [null, "{total_ejecutado}"]);
+    x = fila(x, "+8 unidades (Ejecutadas en exceso)", ["{#balance}{diametro}", "{cotizadas}", "{ejecutadas}", "{diferencia}{/balance}"]);
+    // Como en el Word: exceso en verde, pendiente en rojo (el run de ejemplo es el verde).
+    x = x.replace(
+      /<w:r>(<w:rPr>(?:(?!<\/w:rPr>)[\s\S])*?<w:color w:val="00B050"\/><\/w:rPr>)<w:t xml:space="preserve">\{diferencia\}\{\/balance\}<\/w:t><\/w:r>/,
+      (_, verde) =>
+        `<w:r>${verde}<w:t xml:space="preserve">{^pendiente}{diferencia}{/pendiente}</w:t></w:r>` +
+        `<w:r>${verde.replace("00B050", "EE0000")}<w:t xml:space="preserve">{#pendiente}{diferencia}{/pendiente}</w:t></w:r>` +
+        `<w:r>${verde}<w:t xml:space="preserve">{/balance}</w:t></w:r>`,
+    );
+    if (!x.includes("{#pendiente}")) falla("no encontré la celda de diferencia del balance");
+    x = quitarFilas(x, ["152 mm"]);
+    x = fila(x, "TOTALES", [null, "{total_cotizadas}", "{total_ejecutadas}", "{total_diferencia}"]);
+    return editarParrafos(x, {
+      bloques: [
+        ["observaciones", "Las cantidades de perforaciones cotizadas", "Al finalizar los trabajos"],
+        ["conclusiones", "Diámetro 152 mm:", "Diámetro 102 mm:"],
       ],
     });
   },
