@@ -18,6 +18,9 @@ Cada fase termina desplegada en Vercel (preview → main) y usable. Orden pensad
 
 > F9 puede adelantarse: las tools son wrappers finos de `services/`, que ya existen desde F2.
 
+### Notas de implementación
+- **F3:** los adicionales (`-ADn`) pasan a F4 junto con su documento. El tablero no tiene arrastrar y soltar todavía (el cambio de estado se hace desde el detalle). Las jornadas de trabajo (RF-AGE-05) quedan para F5. Hasta F6 (cobros), pasar a Terminado pide motivo porque todavía no se conoce el saldo.
+
 ## Antes de producción (checklist)
 - [ ] Migrar a **Vercel Pro** (el plan Hobby no permite uso comercial).
 - [ ] DNS de `pasoluciones.com.ar` verificado en Resend (SPF, DKIM) y remitente `notificaciones@pasoluciones.com.ar`.
