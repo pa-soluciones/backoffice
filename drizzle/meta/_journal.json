@@ -15,6 +15,20 @@
       "when": 1791483418847,
       "tag": "0001_configuracion",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791511345724,
+      "tag": "0002_auth_rbac_auditoria",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791511356881,
+      "tag": "0003_audit_append_only",
+      "breakpoints": true
     }
   ]
 }
