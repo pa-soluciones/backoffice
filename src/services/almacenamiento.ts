@@ -4,6 +4,7 @@ import { and, eq, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { archivos } from "@/db/schema";
 import * as r2 from "@/lib/r2";
+import { contenidoCoincide, esPermitido } from "@/domain/archivos";
 import { ErrorNegocio } from "./errores";
 import { reservarAlmacenamiento, reservarOperaciones } from "./cuota-r2";
 
@@ -12,7 +13,7 @@ import { reservarAlmacenamiento, reservarOperaciones } from "./cuota-r2";
 
 export const MAX_BYTES = 30 * 1024 * 1024; // spec/06 RF-ANX-02
 
-type Meta = { nombre: string; mime: string; entidadTipo?: string; entidadId?: string; categoria?: string; createdBy?: string };
+type Meta = { nombre: string; mime: string; entidadTipo?: string; entidadId?: string; categoria?: string; descripcion?: string; createdBy?: string };
 
 function exigirConfigurado() {
   if (!r2.configurado()) throw new ErrorNegocio("El almacenamiento de archivos (Cloudflare R2) todavía no está configurado. Avisale a un administrador.");
@@ -44,13 +45,14 @@ export async function guardarArchivo(cuerpo: Uint8Array, meta: Meta) {
 /** Subida directa del navegador: reserva espacio con el tamaño declarado y devuelve la URL firmada. */
 export async function prepararSubida(bytes: number, meta: Meta) {
   if (bytes <= 0 || bytes > MAX_BYTES) throw new ErrorNegocio("El archivo supera los 30 MB.");
+  if (!esPermitido(meta.mime)) throw new ErrorNegocio("Tipo de archivo no permitido. Se aceptan imágenes, PDF, Word, Excel y planos DWG.");
   exigirConfigurado();
   await reservarOperaciones("opsA");
   const archivo = await reservarAlmacenamiento({ ...meta, r2Key: nuevaKey(meta.nombre), bytes });
   return { archivoId: archivo.id, url: await r2.urlSubidaFirmada(archivo.r2Key) };
 }
 
-/** Confirma la subida directa con el tamaño real (si mintieron el tamaño, se borra). */
+/** Confirma la subida directa: tamaño real y tipo real por sus primeros bytes; si no coinciden, se borra. */
 export async function confirmarSubida(archivoId: string) {
   const [a] = await db.select().from(archivos).where(eq(archivos.id, archivoId));
   if (!a || a.estado !== "pendiente") throw new ErrorNegocio("La subida no existe o ya se confirmó.");
@@ -59,6 +61,11 @@ export async function confirmarSubida(archivoId: string) {
   if (real == null || real > a.bytes) {
     await eliminarArchivo(archivoId);
     throw new ErrorNegocio("La subida no se completó o el archivo no coincide con el tamaño declarado.");
+  }
+  await reservarOperaciones("opsB"); // GET parcial
+  if (!contenidoCoincide(a.mime, await r2.leerInicio(a.r2Key))) {
+    await eliminarArchivo(archivoId);
+    throw new ErrorNegocio("El contenido del archivo no corresponde a su tipo. No se guardó.");
   }
   await db.update(archivos).set({ estado: "ok", bytes: real }).where(eq(archivos.id, archivoId));
 }

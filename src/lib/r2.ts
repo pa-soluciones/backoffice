@@ -55,3 +55,11 @@ export async function borrar(key: string) {
   const res = await client.fetch(url(base, key), { method: "DELETE" });
   if (!res.ok && res.status !== 404) throw new Error(`R2 DELETE ${res.status}`);
 }
+
+/** Primeros `n` bytes del objeto (para verificar el tipo real de una subida). */
+export async function leerInicio(key: string, n = 16): Promise<Uint8Array> {
+  const { base, client } = config();
+  const res = await client.fetch(url(base, key), { headers: { Range: `bytes=0-${n - 1}` } });
+  if (!res.ok) throw new Error(`R2 GET ${res.status}`);
+  return new Uint8Array(await res.arrayBuffer()).slice(0, n);
+}
