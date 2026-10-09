@@ -25,7 +25,7 @@ export const navItems: NavItem[] = [
   { href: "/explorador", label: "Explorador", icon: FolderTree, mobile: true, enabled: true },
   { href: "/presupuestos", label: "Seguimiento", icon: KanbanSquare, enabled: true },
   { href: "/agenda", label: "Agenda", icon: CalendarDays, mobile: true, enabled: true },
-  { href: "/campo", label: "Campo", icon: HardHat, mobile: true, enabled: false },
+  { href: "/campo", label: "Campo", icon: HardHat, mobile: true, enabled: true },
   { href: "/stock", label: "Stock", icon: Package, enabled: false },
   { href: "/finanzas", label: "Finanzas", icon: BarChart3, enabled: false },
   { href: "/ajustes", label: "Ajustes", icon: Settings, enabled: true },
