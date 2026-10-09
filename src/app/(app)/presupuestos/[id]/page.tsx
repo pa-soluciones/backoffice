@@ -12,6 +12,7 @@ import { alcanceDe } from "@/domain/permisos";
 import { destinos, ESTADOS, esFinal, type Estado } from "@/domain/workflow";
 import { listarAdicionales } from "@/services/adicionales";
 import { responsablesDeVisitas } from "@/services/agenda";
+import { listarAnexos } from "@/services/anexos";
 import { documentosEmitidos } from "@/services/documentos";
 import { ErrorNegocio } from "@/services/errores";
 import { obtenerPresupuesto, opcionesUsuarios } from "@/services/presupuestos";
@@ -21,6 +22,7 @@ import { AccionesEstado, Reabrir } from "../_componentes/acciones-estado";
 import { ComercialesForm } from "../_componentes/comerciales-form";
 import { ItemsEditor } from "../_componentes/items-editor";
 import { BotonCrearAdicional } from "../_componentes/adicional";
+import { Anexos } from "../_componentes/anexos";
 import { Descargas } from "../_componentes/descargas";
 import { BotonesRevision } from "../_componentes/revisiones";
 import { AgendarVisita, ResolverVisita } from "../_componentes/visitas";
@@ -55,15 +57,16 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
     if (e instanceof ErrorNegocio) notFound();
     throw e;
   }
-  const [permisos, admin, usuarios, responsables, docs, adicionales] = await Promise.all([
-    getPermisos(usuario.id),
+  const permisos = await getPermisos(usuario.id);
+  const puede = (m: Parameters<typeof alcanceDe>[1], a: Parameters<typeof alcanceDe>[2]) => !!alcanceDe(permisos, m, a);
+  const [admin, usuarios, responsables, docs, adicionales, anexos] = await Promise.all([
     esAdmin(usuario.id),
     opcionesUsuarios(),
     responsablesDeVisitas(p.visitas.map((v) => v.id)),
     documentosEmitidos(id),
     listarAdicionales(id),
+    puede("anexos", "leer") ? listarAnexos(id) : null,
   ]);
-  const puede = (m: Parameters<typeof alcanceDe>[1], a: Parameters<typeof alcanceDe>[2]) => !!alcanceDe(permisos, m, a);
   const cerrado = esFinal(p.estado);
   const borrador = p.revisionActual?.estado === "borrador";
   const editableItems = !cerrado && borrador && p.verMontos && puede("presupuestos", "escribir");
@@ -229,6 +232,12 @@ async function Contenido({ params }: { params: Promise<{ id: string }> }) {
               ))}
             </ul>
           )}
+        </Seccion>
+      )}
+
+      {anexos && (
+        <Seccion titulo="Anexos">
+          <Anexos presupuestoId={p.id} anexos={anexos} puedeSubir={puede("anexos", "escribir")} puedeEliminar={puede("anexos", "eliminar")} />
         </Seccion>
       )}
 

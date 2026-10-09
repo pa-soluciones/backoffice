@@ -14,6 +14,7 @@ import {
 } from "@/services/adicionales";
 import { ESTADOS_ADICIONAL, type EstadoAdicional } from "@/domain/adicionales";
 import { agendarVisita, resolverVisita } from "@/services/agenda";
+import { confirmarAnexo, eliminarAnexo, prepararAnexo, urlAnexo } from "@/services/anexos";
 import { descargar, guardarBloques, restaurarVersion } from "@/services/documentos";
 import { proponerBloque } from "@/services/ia";
 import type { AccionIA } from "@/domain/ia";
@@ -285,4 +286,31 @@ export async function accionEstadoAdicional(presupuestoId: string, id: string, _
     () => cambiarEstadoAdicional(id, hasta, String(fd.get("motivo") ?? "").trim() || null),
     [rutaAdicional(presupuestoId, id), `/presupuestos/${presupuestoId}`],
   );
+}
+
+// ── Anexos ────────────────────────────────────────────────────────────────────
+
+async function capturar<T>(fn: () => Promise<T>): Promise<T | { error: string }> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof ErrorNegocio) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function accionPrepararAnexo(presupuestoId: string, d: { nombre: string; mime: string; bytes: number; categoria: string; descripcion: string | null }) {
+  return capturar(() => prepararAnexo(presupuestoId, d));
+}
+
+export async function accionConfirmarAnexo(presupuestoId: string, archivoId: string): Promise<Estado_> {
+  return ejecutar(() => confirmarAnexo(archivoId), [`/presupuestos/${presupuestoId}`]);
+}
+
+export async function accionUrlAnexo(archivoId: string) {
+  return capturar(async () => ({ url: await urlAnexo(archivoId) }));
+}
+
+export async function accionEliminarAnexo(presupuestoId: string, archivoId: string): Promise<Estado_> {
+  return ejecutar(() => eliminarAnexo(archivoId), [`/presupuestos/${presupuestoId}`]);
 }
