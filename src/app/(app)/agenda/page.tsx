@@ -1,6 +1,7 @@
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { listarAgenda, listarJornadas } from "@/services/agenda";
@@ -21,6 +22,7 @@ function lunesDe(fecha: string) {
 
 async function Semana({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
+  await connection(); // "hoy" depende del momento del pedido, no del build
   const base = typeof sp.semana === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp.semana) ? sp.semana : claveDia.format(new Date());
   const desde = lunesDe(base);
   const hasta = new Date(desde.getTime() + 7 * 86_400_000);
