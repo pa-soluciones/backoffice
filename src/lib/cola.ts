@@ -5,12 +5,17 @@
 // y el servidor lo aplica una sola vez, así los reintentos no duplican.
 
 import type { DatosRegistro } from "@/services/campo";
+import type { DatosGasto } from "@/services/gastos";
 
 export type Pendiente = {
   clientId: string;
+  /** Registro de perforación (por defecto), gasto o consumo de material. */
+  tipo?: "registro" | "gasto" | "consumo";
   presupuestoId: string;
   etiqueta: string; // "2026/0105 · Piso 17 · Ø102 × 2"
-  datos: DatosRegistro;
+  datos?: DatosRegistro;
+  gasto?: DatosGasto;
+  consumo?: { articuloId: string; cantidad: number };
   fotos: { archivo: Blob; nombre: string; tomadaAt: string }[];
   /** Avance: el registro ya se creó en el servidor / cuántas fotos ya subieron. */
   registroId?: string;
@@ -20,6 +25,8 @@ export type Pendiente = {
 };
 
 export type Envio = {
+  gasto: (d: DatosGasto, clientId: string) => Promise<{ error?: string; ok?: string } | undefined>;
+  consumo: (presupuestoId: string, articuloId: string, cantidad: number, clientId: string) => Promise<{ error?: string; ok?: string } | undefined>;
   registrar: (presupuestoId: string, clientId: string, d: DatosRegistro) => Promise<{ id: string } | { error: string }>;
   prepararFoto: (registroId: string, f: { nombre: string; mime: string; bytes: number; tomadaAt: string }) => Promise<{ archivoId: string; url: string } | { error: string }>;
   confirmarFoto: (archivoId: string) => Promise<{ ok: true } | { error: string }>;
@@ -76,8 +83,14 @@ export async function sincronizar(envio: Envio) {
     for (const p of await listar()) {
       if (p.error) continue;
       try {
+        if (p.tipo === "gasto" || p.tipo === "consumo") {
+          const r = p.tipo === "gasto" ? await envio.gasto(p.gasto!, p.clientId) : await envio.consumo(p.presupuestoId, p.consumo!.articuloId, p.consumo!.cantidad, p.clientId);
+          if (r?.error) await guardar({ ...p, error: r.error });
+          else await descartar(p.clientId);
+          continue;
+        }
         if (!p.registroId) {
-          const r = await envio.registrar(p.presupuestoId, p.clientId, p.datos);
+          const r = await envio.registrar(p.presupuestoId, p.clientId, p.datos!);
           if ("error" in r) {
             await guardar({ ...p, error: r.error });
             continue;
