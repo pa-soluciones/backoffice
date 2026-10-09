@@ -81,6 +81,22 @@ function quitarFilas(xml, marcas) {
   return xml;
 }
 
+/** Sección condicional: desde el párrafo que empieza con `inicio` hasta el fin de la tabla que le sigue. */
+function envolver(xml, inicio, tag) {
+  const p = parrafos(xml).find((x) => x.text.trim().startsWith(inicio)) ?? falla(`no encontré "${inicio}"`);
+  const fin = xml.indexOf("</w:tbl>", p.end) + "</w:tbl>".length;
+  const marca = (t) => `<w:p><w:r><w:t>${t}</w:t></w:r></w:p>`;
+  return xml.slice(0, p.start) + marca(`{#${tag}}`) + xml.slice(p.start, fin) + marca(`{/${tag}}`) + xml.slice(fin);
+}
+
+/** Color según una condición: el run de `texto` (con color `si`) se duplica en `no` para el caso contrario. */
+function colorSegun(xml, texto, cond, si, no) {
+  const rPr = String.raw`<w:rPr>(?:(?!</w:rPr>)[\s\S])*?<w:color w:val="` + si + String.raw`"/>(?:(?!</w:rPr>)[\s\S])*?</w:rPr>`;
+  const re = new RegExp(`<w:r>(${rPr})<w:t xml:space="preserve">${texto.replace(/[{}]/g, "\\$&")}</w:t></w:r>`);
+  if (!re.test(xml)) falla(`no encontré el run de "${texto}"`);
+  return xml.replace(re, (_, rPr) => `<w:r>${rPr}<w:t xml:space="preserve">{#${cond}}${texto}{/${cond}}</w:t></w:r><w:r>${rPr.replace(si, no)}<w:t xml:space="preserve">{^${cond}}${texto}{/${cond}}</w:t></w:r>`);
+}
+
 /**
  * La imagen anclada en "Atentamente." (el logo) se nombra "firma": al generar, si la empresa
  * cargó su firma, src/documents/render.ts la reemplaza ahí.
@@ -210,5 +226,50 @@ convertir("Template control perforaciones.docx", "control.docx", {
         ["conclusiones", "Diámetro 152 mm:", "Diámetro 102 mm:"],
       ],
     });
+  },
+});
+
+// ── Certificación (de obra y de trabajo adicional) ────────────────────────────
+convertir("Template Certificación de Obra.docx", "certificacion.docx", {
+  "word/header1.xml": (x) =>
+    textos(x, [
+      ["&lt;ID Presupuesto&gt;-C1", "{codigo}"],
+      ["&lt;fecha emisión&gt;", "{fecha}"],
+      ["&lt;ID Presupuesto&gt; - &lt;Fecha Emisión Presupuesto&gt;", "{presupuesto_codigo} - {presupuesto_fecha}"],
+      ["&lt;Nombre Contratista&gt;", "{cliente}"],
+      ["&lt;Nombre director de Obra&gt;", "{director}"],
+      ["&lt;Ubicación de la Obra&gt;", "{direccion}"],
+    ]),
+  "word/document.xml": (x) => {
+    x = marcarFirma(x);
+    x = textos(x, [
+      ["SEGÚN PRESUPUESTO NRO. 2026/0105", "SEGÚN PRESUPUESTO NRO. {presupuesto_codigo}"],
+      ["TRABAJOS ADICONALES INCORPORADOS", "TRABAJOS ADICIONALES INCORPORADOS"],
+      ["&lt;monto a abonar escrito&gt;CON 00/100 (&lt;monto a abonar númerico&gt;)", "{saldo_letras} ({saldo_total})"],
+    ]);
+    x = fila(x, "Subtotal trabajos originales con Descuento", ["{subtotal_originales_label}", "{subtotal_originales}"]);
+    x = fila(x, "1", ["{#originales}{nro}", "{descripcion}", "{cantidad}", "{precio}", "{subtotal}{/originales}"]);
+    x = quitarFilas(x, ["2"]);
+    x = fila(x, "Subtotal trabajos adicionales", [null, "{subtotal_adicionales}"]);
+    x = fila(x, "3", ["{#adicionales_items}{nro}", "{descripcion}", "{cantidad}", "{precio}", "{subtotal}{/adicionales_items}"]);
+    x = fila(x, "MONTO TOTAL CERTIFICADO", [null, "{total_certificado}"]);
+    x = fila(x, "Anticipo del 40% sobre el presupuesto original", ["{#pagos_filas}{concepto}", "{estado}", "{importe}{/pagos_filas}"]);
+    x = colorSegun(x, "{estado}", "abonado", "00B050", "EE0000");
+    x = quitarFilas(x, ["Saldo del 60% sobre el presupuesto original (<ID Presupuesto>)", "Trabajos adicionales — 8 perforaciones de Ø 102 mm (ítem 3)"]);
+    x = fila(x, "SALDO TOTAL POR ABONAR", [null, "{saldo_total}"]);
+    x = editarParrafos(x, {
+      textos: [
+        ["CERTIFICACIÓN DE OBRA", "{titulo}"],
+        ["(trabajos originales + adicionales)", "{total_detalle}"],
+      ],
+      bloques: [
+        ["objeto", "Por medio del presente documento"],
+        ["adicionales", "A solicitud del Contratista"],
+        ["pagos", "Se deja expresa constancia"],
+        ["observaciones", "Vigencia del descuento comercial.", "Forma de pago del saldo."],
+      ],
+    });
+    x = envolver(x, "TRABAJOS CERTIFICADOS SEGÚN PRESUPUESTO", "hay_originales");
+    return envolver(x, "TRABAJOS ADICIONALES INCORPORADOS", "hay_adicionales");
   },
 });

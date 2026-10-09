@@ -8,7 +8,7 @@ import { medidaFirma } from "@/domain/archivos";
 // Genera el DOCX a partir de las plantillas de /templates (convertidas desde los Word de PAS
 // con scripts/plantillas/convertir.mjs).
 
-export type Plantilla = "presupuesto" | "adicional" | "control";
+export type Plantilla = "presupuesto" | "adicional" | "control" | "certificacion";
 export type Firma = { png: Uint8Array; ancho: number; alto: number };
 
 export function renderDocx(plantilla: Plantilla, datos: object, firma?: Firma | null): Uint8Array {
