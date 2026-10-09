@@ -10,6 +10,7 @@ import { guardarConfigIA } from "@/services/ia";
 import { fijarProximoNumero, guardarDefaults } from "@/services/configuracion";
 import { aprobarExcedente } from "@/services/cuota-r2";
 import { guardarFirma, quitarFirma } from "@/services/firma";
+import { guardarCategoria } from "@/services/gastos";
 import { actualizarRol, crearRol, eliminarRol } from "@/services/roles";
 import {
   actualizarUsuario,
@@ -211,6 +212,14 @@ export async function accionGuardarConfigIA(_: Estado, fd: FormData): Promise<Es
   return ejecutar(async () => {
     await guardarConfigIA(r.data);
     revalidatePath("/ajustes/ia");
+    return { ok: true };
+  });
+}
+
+export async function accionCategoriaGasto(id: string | null, _: Estado, fd: FormData): Promise<Estado> {
+  return ejecutar(async () => {
+    await guardarCategoria(id, String(fd.get("nombre") ?? ""), fd.get("activa") !== null || id === null);
+    revalidatePath("/ajustes/gastos");
     return { ok: true };
   });
 }

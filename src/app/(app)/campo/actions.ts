@@ -5,6 +5,7 @@ import { z } from "zod";
 import { ESTADOS_REGISTRO } from "@/domain/balance";
 import { confirmarFoto, editarRegistro, eliminarRegistro, prepararFoto, registrar, urlFoto, type DatosRegistro } from "@/services/campo";
 import { ErrorNegocio } from "@/services/errores";
+import { eliminarGasto, registrarGasto, type DatosGasto } from "@/services/gastos";
 
 const numero = z.coerce.number().positive().nullable();
 const datosSchema = z.object({
@@ -79,4 +80,35 @@ export async function accionEliminarRegistro(presupuestoId: string, registroId: 
 
 export async function accionUrlFoto(archivoId: string) {
   return capturar(async () => ({ url: await urlFoto(archivoId) }));
+}
+
+// ── Gastos (spec/08 §2) ───────────────────────────────────────────────────────
+
+const gastoSchema = z.object({
+  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Indicá la fecha."),
+  presupuestoId: z.string().uuid().nullable(),
+  categoriaId: z.string().uuid("Elegí una categoría."),
+  descripcion: z.string().trim().min(1, "Describí el gasto.").max(300),
+  importe: z.coerce.number().positive("El importe tiene que ser mayor a 0."),
+  moneda: z.enum(["ARS", "USD"]),
+  tipoCambio: z.coerce.number().positive().nullable(),
+}) satisfies z.ZodType<DatosGasto>;
+
+/** La usan el formulario del presupuesto, Finanzas (generales) y la cola offline de Campo. */
+export async function accionRegistrarGasto(d: DatosGasto, clientId?: string): Promise<{ error?: string; ok?: string }> {
+  const r = gastoSchema.safeParse(d);
+  if (!r.success) return { error: r.error.issues[0]?.message ?? "Datos inválidos." };
+  const res = await capturar(() => registrarGasto(r.data, clientId));
+  if (typeof res === "object" && "error" in res) return res;
+  if (r.data.presupuestoId) revalidatePath(`/presupuestos/${r.data.presupuestoId}`);
+  revalidatePath("/finanzas");
+  return { ok: "Gasto registrado." };
+}
+
+export async function accionEliminarGasto(id: string, presupuestoId: string | null): Promise<{ error?: string; ok?: string }> {
+  const res = await capturar(() => eliminarGasto(id));
+  if (typeof res === "object" && res && "error" in res) return res;
+  if (presupuestoId) revalidatePath(`/presupuestos/${presupuestoId}`);
+  revalidatePath("/finanzas");
+  return { ok: "Gasto eliminado." };
 }

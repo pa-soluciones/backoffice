@@ -4,9 +4,16 @@ import { CloudOff, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { descartar, guardar, listar, sincronizar, type Envio, type Pendiente } from "@/lib/cola";
-import { accionConfirmarFoto, accionPrepararFoto, accionRegistrar } from "../actions";
+import { accionConsumo } from "../../stock/actions";
+import { accionConfirmarFoto, accionPrepararFoto, accionRegistrar, accionRegistrarGasto } from "../actions";
 
-const envio: Envio = { registrar: accionRegistrar, prepararFoto: accionPrepararFoto, confirmarFoto: accionConfirmarFoto };
+const envio: Envio = {
+  registrar: accionRegistrar,
+  prepararFoto: accionPrepararFoto,
+  confirmarFoto: accionConfirmarFoto,
+  gasto: accionRegistrarGasto,
+  consumo: accionConsumo,
+};
 const INTERVALO = 30_000;
 
 /** Indicador permanente de la cola (spec/12 RNF-05) y disparador de la sincronización. */
