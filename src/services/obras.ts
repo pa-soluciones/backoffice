@@ -1,9 +1,10 @@
 import "server-only";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { clientes, directoresObra, obras } from "@/db/schema";
+import { clientes, directoresObra, obras, presupuestos } from "@/db/schema";
 import { auditar } from "./auditoria";
 import { crearDirector } from "./directores";
+import { soloAsignados } from "./presupuestos";
 import { ErrorNegocio } from "./errores";
 import { requirePermiso } from "./sesion";
 
@@ -23,18 +24,24 @@ export type DatosObra = {
 
 const vivas = isNull(obras.deletedAt);
 
-/**
- * ponytail: el alcance "asignados" se resuelve por presupuestos asignados (F3). Hasta entonces
- * un usuario con alcance `asignados` no ve obras sueltas.
- */
-async function exigirAlcanceTodos(accion: "leer" | "escribir" | "eliminar") {
+/** Crear, editar y eliminar obras exige alcance "todos". */
+async function exigirAlcanceTodos(accion: "escribir" | "eliminar") {
   const r = await requirePermiso("obras", accion);
   if (r.alcance !== "todos") throw new ErrorNegocio("Solo podés ver las obras de tus presupuestos asignados.");
   return r;
 }
 
+/** Con alcance "asignados" solo se ven obras con algún presupuesto asignado al usuario. */
 export async function obtenerObra(id: string) {
-  await exigirAlcanceTodos("leer");
+  const { usuario, alcance } = await requirePermiso("obras", "leer");
+  if (alcance === "asignados") {
+    const [a] = await db
+      .select({ x: presupuestos.id })
+      .from(presupuestos)
+      .where(and(eq(presupuestos.obraId, id), isNull(presupuestos.deletedAt), soloAsignados(usuario.id)))
+      .limit(1);
+    if (!a) throw new ErrorNegocio("No tenés presupuestos asignados en esta obra.");
+  }
   const [o] = await db
     .select({ obra: obras, cliente: { id: clientes.id, razonSocial: clientes.razonSocial }, director: directoresObra })
     .from(obras)
@@ -86,9 +93,10 @@ export async function actualizarObra(id: string, d: DatosObra) {
   await auditar({ actorUserId: usuario.id, action: "obra.actualizar", entityType: "obra", entityId: id, entityLabel: valores.direccion, diff });
 }
 
-/** ponytail: cuando existan presupuestos (F3), impedir eliminar obras que los tengan. */
 export async function eliminarObra(id: string) {
   const { usuario } = await exigirAlcanceTodos("eliminar");
+  const [p] = await db.select({ x: presupuestos.id }).from(presupuestos).where(and(eq(presupuestos.obraId, id), isNull(presupuestos.deletedAt))).limit(1);
+  if (p) throw new ErrorNegocio("La obra tiene presupuestos: no se puede eliminar.");
   const [o] = await db.update(obras).set({ deletedAt: new Date() }).where(eq(obras.id, id)).returning();
   await auditar({ actorUserId: usuario.id, action: "obra.eliminar", entityType: "obra", entityId: id, entityLabel: o?.direccion });
   return o?.clienteId;

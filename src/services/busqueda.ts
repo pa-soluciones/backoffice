@@ -2,13 +2,16 @@ import "server-only";
 import { and, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { clientes, directoresObra, obras } from "@/db/schema";
+import { clientes, directoresObra, obras, presupuestos } from "@/db/schema";
+import { parsearCodigo } from "@/domain/codigos";
+import { ESTADOS, type Estado } from "@/domain/workflow";
+import { codigo, soloAsignados } from "./presupuestos";
 import { alcanceDe } from "@/domain/permisos";
 import { getPermisos, requireUsuario } from "./sesion";
 
 // Buscador global (spec/04 §6): sin acentos ni mayúsculas, tolerante a errores de tipeo.
 
-export type Resultado = { tipo: "cliente" | "obra" | "director"; id: string; titulo: string; detalle: string | null; href: string };
+export type Resultado = { tipo: "presupuesto" | "cliente" | "obra" | "director"; id: string; titulo: string; detalle: string | null; href: string };
 
 const LIMITE = 6;
 
@@ -28,15 +31,32 @@ export async function buscar(texto: string): Promise<Resultado[]> {
   if (q.length < 2) return [];
   const permisos = await getPermisos(usuario.id);
   const verClientes = !!alcanceDe(permisos, "clientes", "leer");
-  // ponytail: alcance "asignados" de obras se resuelve con presupuestos (F3).
   const verObras = alcanceDe(permisos, "obras", "leer") === "todos";
+  const alcPres = alcanceDe(permisos, "presupuestos", "leer");
 
   const cli = coincide(clientes.razonSocial, q);
   const obr = coincide(obras.direccion, q);
   const obrNombre = coincide(obras.nombre, q);
   const dir = coincide(directoresObra.nombre, q);
 
-  const [cs, os, ds] = await Promise.all([
+  // Presupuestos: por código (2026/0105, 105) o por contacto de un prospecto anónimo.
+  const cod = parsearCodigo(q);
+  const contacto = coincide(presupuestos.contactoNombre, q);
+  const presWhere = cod
+    ? and(eq(presupuestos.numero, cod.numero), cod.anio ? eq(presupuestos.anio, cod.anio) : undefined)
+    : sql`(${contacto.where} or ${presupuestos.contactoTelefono} like '%' || ${q} || '%')`;
+
+  const [ps, cs, os, ds] = await Promise.all([
+    alcPres
+      ? db
+          .select({ p: presupuestos, cliente: clientes.razonSocial, obra: obras.direccion })
+          .from(presupuestos)
+          .leftJoin(clientes, eq(clientes.id, presupuestos.clienteId))
+          .leftJoin(obras, eq(obras.id, presupuestos.obraId))
+          .where(and(isNull(presupuestos.deletedAt), presWhere, alcPres === "asignados" ? soloAsignados(usuario.id) : undefined))
+          .orderBy(desc(presupuestos.anio))
+          .limit(LIMITE)
+      : [],
     verClientes
       ? db
           .select({ id: clientes.id, titulo: clientes.razonSocial, archivado: clientes.archivado })
@@ -66,6 +86,13 @@ export async function buscar(texto: string): Promise<Resultado[]> {
   ]);
 
   return [
+    ...ps.map(({ p, cliente, obra }) => ({
+      tipo: "presupuesto" as const,
+      id: p.id,
+      titulo: codigo(p) ?? `Prospecto: ${p.contactoNombre ?? p.contactoTelefono ?? "sin datos"}`,
+      detalle: [cliente ?? p.contactoNombre, obra, ESTADOS[p.estado as Estado]].filter(Boolean).join(" · "),
+      href: `/presupuestos/${p.id}`,
+    })),
     ...cs.map((c) => ({ tipo: "cliente" as const, id: c.id, titulo: c.titulo, detalle: c.archivado ? "Archivado" : null, href: `/explorador/${c.id}` })),
     ...os.map((o) => ({
       tipo: "obra" as const,
