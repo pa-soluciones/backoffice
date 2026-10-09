@@ -7,6 +7,8 @@ import { ELEMENTOS, TIPOS_SERVICIO, UNIDADES } from "@/domain/items";
 import { ESTADOS, type Estado } from "@/domain/workflow";
 import { agendarVisita, resolverVisita } from "@/services/agenda";
 import { descargar, guardarBloques, restaurarVersion } from "@/services/documentos";
+import { proponerBloque } from "@/services/ia";
+import type { AccionIA } from "@/domain/ia";
 import { ErrorNegocio } from "@/services/errores";
 import {
   actualizarProspecto,
@@ -179,11 +181,16 @@ export async function accionResolverVisita(presupuestoId: string, visitaId: stri
 
 // ── Documento ─────────────────────────────────────────────────────────────────
 
-export async function accionGuardarBloques(documentoId: string, presupuestoId: string, json: string): Promise<Estado_ & { version?: number }> {
+export async function accionGuardarBloques(
+  documentoId: string,
+  presupuestoId: string,
+  json: string,
+  origen: "usuario" | "ia" = "usuario",
+): Promise<Estado_ & { version?: number }> {
   const r = z.record(z.string(), z.string().max(10_000)).safeParse(JSON.parse(json));
   if (!r.success) return { error: "Datos inválidos." };
   try {
-    const version = await guardarBloques(documentoId, r.data);
+    const version = await guardarBloques(documentoId, r.data, origen === "ia" ? "ia" : "usuario");
     revalidatePath(`/presupuestos/${presupuestoId}/documento`);
     return { ok: "Guardado.", version };
   } catch (e) {
@@ -206,6 +213,23 @@ export async function accionRestaurarVersion(documentoId: string, presupuestoId:
 export async function accionUrlDescarga(documentoId: string, formato: "docx" | "pdf"): Promise<{ url?: string; error?: string }> {
   try {
     return { url: await descargar(documentoId, formato) };
+  } catch (e) {
+    if (e instanceof ErrorNegocio) return { error: e.message };
+    throw e;
+  }
+}
+
+// ── IA ────────────────────────────────────────────────────────────────────────
+
+export async function accionProponerIA(
+  documentoId: string,
+  bloqueId: string,
+  accion: AccionIA,
+  instruccion: string | null,
+  textoActual: string,
+): Promise<{ texto?: string; advertencias?: string[]; error?: string }> {
+  try {
+    return await proponerBloque(documentoId, bloqueId, accion, instruccion, textoActual);
   } catch (e) {
     if (e instanceof ErrorNegocio) return { error: e.message };
     throw e;

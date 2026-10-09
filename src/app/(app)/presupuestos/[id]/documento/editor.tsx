@@ -8,6 +8,7 @@ import { variablesDesconocidas } from "@/domain/bloques";
 import { armar, BLOQUES, variables, type DatosPresupuesto } from "@/documents/presupuesto";
 import { cn } from "@/lib/utils";
 import { accionGuardarBloques, accionRestaurarVersion } from "../../actions";
+import { AsistenteIA } from "./asistente-ia";
 import { VistaPrevia } from "./vista-previa";
 
 type Version = { nro: number; origen: string; at: Date; usuario: string | null };
@@ -26,6 +27,7 @@ export function EditorDocumento({
   defaults,
   editable,
   versiones,
+  ia,
 }: {
   documentoId: string;
   presupuestoId: string;
@@ -34,6 +36,8 @@ export function EditorDocumento({
   defaults: Record<string, string>;
   editable: boolean;
   versiones: Version[];
+  /** El usuario puede usar la IA y está configurada. */
+  ia: boolean;
 }) {
   const [bloques, setBloques] = useState(inicial);
   const [guardado, setGuardado] = useState(inicial);
@@ -67,6 +71,17 @@ export function EditorDocumento({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- guardar usa el estado actual
   }, [bloques, sucio, editable]);
 
+  // Propuesta aceptada: se aplica y se guarda como versión con origen "ia".
+  const aceptarIA = (id: string, texto: string) => {
+    const nuevos = { ...bloques, [id]: texto };
+    setBloques(nuevos);
+    start(async () => {
+      const r = await accionGuardarBloques(documentoId, presupuestoId, JSON.stringify(nuevos), "ia");
+      if (!r.error) setGuardado(nuevos);
+      setEstado(r);
+    });
+  };
+
   const elegir = (id: string) => {
     setActivo(id);
     setVista("editar");
@@ -95,10 +110,13 @@ export function EditorDocumento({
             const desconocidas = variablesDesconocidas(bloques[b.id] ?? "", vars);
             return (
               <div key={b.id} className={cn("space-y-1.5 rounded-xl border bg-card p-3", activo === b.id && "border-primary")}>
-                <div className="flex items-center justify-between gap-2">
-                  <label htmlFor={`b-${b.id}`} className="text-sm font-semibold">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label htmlFor={`b-${b.id}`} className="mr-auto text-sm font-semibold">
                     {b.titulo}
                   </label>
+                  {editable && ia && (
+                    <AsistenteIA documentoId={documentoId} bloqueId={b.id} textoActual={bloques[b.id] ?? ""} onAceptar={(t) => aceptarIA(b.id, t)} />
+                  )}
                   {editable && bloques[b.id] !== defaults[b.id] && (
                     <Button type="button" variant="ghost" size="xs" onClick={() => setBloques((x) => ({ ...x, [b.id]: defaults[b.id] }))} title="Volver al texto por defecto">
                       <RotateCcw data-icon="inline-start" /> Por defecto

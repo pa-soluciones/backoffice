@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { MODULOS, type Permiso } from "@/domain/permisos";
 import { FREE_TIER } from "@/domain/cuota-r2";
+import { MODELOS, type Modelo } from "@/domain/ia";
+import { guardarConfigIA } from "@/services/ia";
 import { fijarProximoNumero, guardarDefaults } from "@/services/configuracion";
 import { aprobarExcedente } from "@/services/cuota-r2";
 import { actualizarRol, crearRol, eliminarRol } from "@/services/roles";
@@ -176,6 +178,20 @@ export async function accionAprobarExcedente(_: Estado, fd: FormData): Promise<E
       opsB: Math.floor(FREE_TIER.opsB * factor),
     });
     revalidatePath("/ajustes/almacenamiento");
+    return { ok: true };
+  });
+}
+
+// ── IA ────────────────────────────────────────────────────────────────────────
+
+export async function accionGuardarConfigIA(_: Estado, fd: FormData): Promise<Estado> {
+  const r = z
+    .object({ modelo: z.enum(Object.keys(MODELOS) as [Modelo]), limiteMensualUsd: z.coerce.number().min(0, "El tope tiene que ser 0 o más.").max(1000) })
+    .safeParse(Object.fromEntries(fd));
+  if (!r.success) return { error: primerError(r) };
+  return ejecutar(async () => {
+    await guardarConfigIA(r.data);
+    revalidatePath("/ajustes/ia");
     return { ok: true };
   });
 }
