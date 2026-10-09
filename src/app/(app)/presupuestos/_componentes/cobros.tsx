@@ -136,7 +136,9 @@ function FilaRecibido({ presupuestoId, r, concepto, moneda, puedeEliminar }: { p
 function FormCobro({ presupuestoId, moneda, esperados }: { presupuestoId: string; moneda: Moneda; esperados: Esperado[] }) {
   const [estado, onSubmit, pending] = useAccion(accionRegistrarCobro.bind(null, presupuestoId), undefined);
   const pendientes = esperados.filter((e) => e.estado !== "abonado");
-  const [concepto, setConcepto] = useState(pendientes[0]?.id ?? "otro");
+  const [elegidoId, setConcepto] = useState(pendientes[0]?.id ?? "otro");
+  // Si el concepto elegido quedó abonado, se pasa al primero pendiente.
+  const concepto = elegidoId === "otro" || pendientes.some((e) => e.id === elegidoId) ? elegidoId : (pendientes[0]?.id ?? "otro");
   const [recibida, setRecibida] = useState<Moneda>(moneda);
   const elegido = esperados.find((e) => e.id === concepto);
   const resto = elegido ? Math.max(0, Math.round((elegido.importe - elegido.imputado) * 100) / 100) : "";

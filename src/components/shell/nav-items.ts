@@ -27,7 +27,7 @@ export const navItems: NavItem[] = [
   { href: "/agenda", label: "Agenda", icon: CalendarDays, mobile: true, enabled: true },
   { href: "/campo", label: "Campo", icon: HardHat, mobile: true, enabled: true },
   { href: "/stock", label: "Stock", icon: Package, enabled: true },
-  { href: "/finanzas", label: "Finanzas", icon: BarChart3, enabled: false },
+  { href: "/finanzas", label: "Finanzas", icon: BarChart3, enabled: true },
   { href: "/ajustes", label: "Ajustes", icon: Settings, enabled: true },
 ];
 
