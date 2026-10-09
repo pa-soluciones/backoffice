@@ -28,7 +28,7 @@ export const navItems: NavItem[] = [
   { href: "/campo", label: "Campo", icon: HardHat, mobile: true, enabled: false },
   { href: "/stock", label: "Stock", icon: Package, enabled: false },
   { href: "/finanzas", label: "Finanzas", icon: BarChart3, enabled: false },
-  { href: "/ajustes", label: "Ajustes", icon: Settings, enabled: false },
+  { href: "/ajustes", label: "Ajustes", icon: Settings, enabled: true },
 ];
 
 export function isActive(pathname: string, href: string) {

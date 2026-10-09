@@ -3,11 +3,25 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { isActive, navItems } from "./nav-items";
 
+// usePathname no se conoce al prerenderizar rutas dinámicas: el fallback es la misma
+// navegación sin ítem activo, así no hay salto visual.
 export function Sidebar() {
-  const pathname = usePathname();
+  return (
+    <Suspense fallback={<Vista pathname="" />}>
+      <ConRuta />
+    </Suspense>
+  );
+}
+
+function ConRuta() {
+  return <Vista pathname={usePathname()} />;
+}
+
+function Vista({ pathname }: { pathname: string }) {
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex md:w-18 lg:w-60">
