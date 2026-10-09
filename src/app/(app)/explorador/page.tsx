@@ -2,6 +2,7 @@ import { Folder, HardHat, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { pagina as cortar, paginaDe, Paginador, POR_PAGINA } from "@/components/paginador";
 import { buttonVariants } from "@/components/ui/button";
 import { alcanceDe } from "@/domain/permisos";
 import { cn } from "@/lib/utils";
@@ -18,7 +19,9 @@ async function Clientes({ searchParams }: { searchParams: Promise<Record<string,
   const sp = await searchParams;
   const archivados = sp.archivados === "1";
   const orden = sp.orden === "actividad" ? "actividad" : "nombre";
-  const [lista, permisos] = await Promise.all([listarClientes({ archivados, orden }), getPermisos(usuario.id)]);
+  const pag = paginaDe(sp.pagina);
+  const [crudo, permisos] = await Promise.all([listarClientes({ archivados, orden, limite: POR_PAGINA + 1, desde: (pag - 1) * POR_PAGINA }), getPermisos(usuario.id)]);
+  const { filas: lista, hayMas } = cortar(crudo);
   const anonimos = !archivados && alcanceDe(permisos, "presupuestos", "leer") ? await listarPresupuestos({ sinCliente: true }) : [];
   const qs = (c: { archivados?: boolean; orden?: string }) =>
     `?${new URLSearchParams({ ...((c.archivados ?? archivados) ? { archivados: "1" } : {}), orden: c.orden ?? orden })}`;
@@ -61,7 +64,7 @@ async function Clientes({ searchParams }: { searchParams: Promise<Record<string,
         </Link>
       )}
 
-      {lista.length === 0 ? (
+      {lista.length === 0 && pag === 1 ? (
         <div className="rounded-xl border border-dashed bg-card px-6 py-12 text-center">
           <Folder className="mx-auto size-10 text-muted-foreground" aria-hidden />
           <p className="mt-3 font-semibold">{archivados ? "No hay clientes archivados" : "Todavía no hay clientes"}</p>
@@ -83,6 +86,7 @@ async function Clientes({ searchParams }: { searchParams: Promise<Record<string,
           ))}
         </ul>
       )}
+      <Paginador pagina={pag} hayMas={hayMas} mostrando={lista.length} params={{ orden, archivados: archivados ? "1" : undefined }} />
     </>
   );
 }

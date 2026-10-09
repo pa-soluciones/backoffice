@@ -52,13 +52,15 @@ async function presupuestoEnCurso(tx: Tx | typeof db, presupuestoId: string) {
 
 // ── Catálogo ──────────────────────────────────────────────────────────────────
 
-export async function listarArticulos(q?: string) {
+export async function listarArticulos(q?: string, rango: { limite?: number; desde?: number } = {}) {
   const { verCostos } = await permisoStock("leer");
   const filas = await db
     .select()
     .from(articulos)
     .where(and(eq(articulos.activo, true), q?.trim() ? ilike(articulos.nombre, `%${q.trim()}%`) : undefined))
-    .orderBy(asc(articulos.categoria), asc(articulos.nombre));
+    .orderBy(asc(articulos.categoria), asc(articulos.nombre))
+    .limit(rango.limite ?? 10_000)
+    .offset(rango.desde ?? 0);
   const deposito = await saldosEn(db, DEPOSITO);
   return filas.map((a) => {
     const stock = deposito[a.id] ?? 0;

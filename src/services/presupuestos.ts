@@ -73,7 +73,18 @@ function exigirEditable(p: typeof presupuestos.$inferSelect) {
 
 // ── Listados ──────────────────────────────────────────────────────────────────
 
-export type Filtros = { estado?: Estado; clienteId?: string; obraId?: string; sinCliente?: boolean; bonificado?: boolean };
+export type Filtros = {
+  estado?: Estado;
+  /** Varios estados a la vez (el tablero pide solo los activos). */
+  estados?: Estado[];
+  clienteId?: string;
+  obraId?: string;
+  sinCliente?: boolean;
+  bonificado?: boolean;
+  /** Paginación: filas a traer y desde cuál. */
+  limite?: number;
+  desde?: number;
+};
 
 export async function listarPresupuestos(f: Filtros = {}) {
   const { usuario, alcance } = await requirePermiso("presupuestos", "leer");
@@ -104,6 +115,7 @@ export async function listarPresupuestos(f: Filtros = {}) {
       and(
         vivos,
         f.estado ? eq(presupuestos.estado, f.estado) : undefined,
+        f.estados?.length ? inArray(presupuestos.estado, f.estados) : undefined,
         f.clienteId ? eq(presupuestos.clienteId, f.clienteId) : undefined,
         f.obraId ? eq(presupuestos.obraId, f.obraId) : undefined,
         f.sinCliente ? isNull(presupuestos.clienteId) : undefined,
@@ -111,7 +123,9 @@ export async function listarPresupuestos(f: Filtros = {}) {
         alcance === "asignados" ? soloAsignados(usuario.id) : undefined,
       ),
     )
-    .orderBy(desc(presupuestos.updatedAt));
+    .orderBy(desc(presupuestos.updatedAt))
+    .limit(f.limite ?? 10_000)
+    .offset(f.desde ?? 0);
 
   return rows.map(({ p, cliente, obra, totales }) => ({
     id: p.id,

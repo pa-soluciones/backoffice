@@ -158,14 +158,15 @@ export async function noLeidas() {
   return r.n;
 }
 
-export async function misNotificaciones(soloNoLeidas = false) {
+export async function misNotificaciones(soloNoLeidas = false, rango: { limite?: number; desde?: number } = {}) {
   const u = await requireUsuario();
   return db
     .select()
     .from(notificaciones)
     .where(and(eq(notificaciones.userId, u.id), soloNoLeidas ? isNull(notificaciones.leidaAt) : undefined))
     .orderBy(desc(notificaciones.updatedAt))
-    .limit(100)
+    .limit(rango.limite ?? 100)
+    .offset(rango.desde ?? 0)
     .then((ns) => ns.map((n) => ({ ...n, titulo: tituloAgrupado(n.titulo, n.agrupadaCount) })));
 }
 

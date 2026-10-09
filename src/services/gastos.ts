@@ -69,7 +69,7 @@ export async function registrarGasto(d: DatosGasto, clientId?: string) {
   return g.id;
 }
 
-export async function listarGastos(f: { presupuestoId?: string | null; desde?: string; hasta?: string }) {
+export async function listarGastos(f: { presupuestoId?: string | null; desde?: string; hasta?: string; limite?: number; offset?: number }) {
   await permisoGasto(f.presupuestoId ?? null, "leer");
   const filas = await db
     .select({ g: gastos, categoria: categoriasGasto.nombre, autor: user.name, proveedor: proveedores.nombre, anio: presupuestos.anio, numero: presupuestos.numero })
@@ -85,7 +85,9 @@ export async function listarGastos(f: { presupuestoId?: string | null; desde?: s
         f.hasta ? lte(gastos.fecha, f.hasta) : undefined,
       ),
     )
-    .orderBy(desc(gastos.fecha), desc(gastos.createdAt));
+    .orderBy(desc(gastos.fecha), desc(gastos.createdAt))
+    .limit(f.limite ?? 10_000)
+    .offset(f.offset ?? 0);
   return filas.map((x) => ({
     id: x.g.id,
     fecha: x.g.fecha,

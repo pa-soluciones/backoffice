@@ -31,7 +31,7 @@ function traducirDuplicado(e: unknown): never {
   throw e;
 }
 
-export async function listarClientes(opts: { archivados?: boolean; orden?: "nombre" | "actividad" } = {}) {
+export async function listarClientes(opts: { archivados?: boolean; orden?: "nombre" | "actividad"; limite?: number; desde?: number } = {}) {
   await requirePermiso("clientes", "leer");
   const actividad = sql<Date>`greatest(${clientes.updatedAt}, coalesce(${max(obras.updatedAt)}, ${clientes.updatedAt}))`;
   return db
@@ -46,7 +46,9 @@ export async function listarClientes(opts: { archivados?: boolean; orden?: "nomb
     .leftJoin(obras, and(eq(obras.clienteId, clientes.id), isNull(obras.deletedAt)))
     .where(and(vivos, eq(clientes.archivado, !!opts.archivados)))
     .groupBy(clientes.id)
-    .orderBy(opts.orden === "actividad" ? desc(actividad) : asc(clientes.razonSocial));
+    .orderBy(opts.orden === "actividad" ? desc(actividad) : asc(clientes.razonSocial))
+    .limit(opts.limite ?? 10_000)
+    .offset(opts.desde ?? 0);
 }
 
 export async function obtenerCliente(id: string) {

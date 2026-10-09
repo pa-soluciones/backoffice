@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { Plegable } from "@/components/plegable";
 import { buttonVariants } from "@/components/ui/button";
 import { formatearMonto } from "@/domain/montos";
+import { cn } from "@/lib/utils";
 import { alcanceDe } from "@/domain/permisos";
 import { ESTADOS, type Estado } from "@/domain/workflow";
 import { finanzasEmpresa } from "@/services/finanzas";
@@ -37,7 +39,7 @@ async function Contenido({ searchParams }: { searchParams: Promise<Record<string
   const { p, desde, hasta, titulo } = rango(typeof sp.periodo === "string" ? sp.periodo : undefined);
   const permisos = await getPermisos(usuario.id);
   const verGastos = alcanceDe(permisos, "gastos", "leer") === "todos";
-  const [f, generales, cats] = await Promise.all([finanzasEmpresa(desde, hasta), verGastos ? listarGastos({ presupuestoId: null, desde, hasta }) : null, categorias()]);
+  const [f, generales, cats] = await Promise.all([finanzasEmpresa(desde, hasta), verGastos ? listarGastos({ presupuestoId: null, desde, hasta, limite: 51 }) : null, categorias()]);
   const max = Math.max(1, ...f.porMes.flatMap((x) => [x.ingresosArs, x.egresosArs]));
   const actual = hoy();
   const periodos = [
@@ -54,18 +56,20 @@ async function Contenido({ searchParams }: { searchParams: Promise<Record<string
             {x.t}
           </Link>
         ))}
-        <span className="ml-2 text-sm text-muted-foreground capitalize">{titulo}</span>
+        <span className="ml-2 text-sm text-muted-foreground">{titulo.charAt(0).toUpperCase() + titulo.slice(1)}</span>
       </nav>
 
       <dl className="grid gap-3 sm:grid-cols-3">
-        {[
-          ["Cobrado (pesos)", formatearMonto(f.totales.ingresosArs)],
-          ["Egresos (compras y gastos)", formatearMonto(f.totales.egresosArs)],
-          ["Resultado en pesos", formatearMonto(f.totales.resultadoArs)],
-        ].map(([k, v]) => (
-          <div key={k} className="rounded-xl border bg-card p-4">
+        {(
+          [
+            ["Cobrado (pesos)", f.totales.ingresosArs, ""],
+            ["Egresos (compras y gastos)", f.totales.egresosArs, ""],
+            ["Resultado en pesos", f.totales.resultadoArs, f.totales.resultadoArs < 0 ? "text-destructive" : f.totales.resultadoArs > 0 ? "text-success" : ""],
+          ] as const
+        ).map(([k, v, tono]) => (
+          <div key={k} className={cn("rounded-xl border bg-card p-4", k.startsWith("Resultado") && "sm:border-foreground/20")}>
             <dt className="text-sm text-muted-foreground">{k}</dt>
-            <dd className="text-xl font-semibold tabular-nums">{v}</dd>
+            <dd className={cn("text-2xl font-semibold tabular-nums", tono)}>{formatearMonto(v)}</dd>
           </div>
         ))}
       </dl>
@@ -160,8 +164,13 @@ async function Contenido({ searchParams }: { searchParams: Promise<Record<string
       {generales && (
         <section className="space-y-2">
           <h2 className="text-lg font-semibold">Gastos generales de la empresa</h2>
-          <ListaGastos gastos={generales} puedeEliminar={alcanceDe(permisos, "gastos", "eliminar") === "todos"} />
-          {alcanceDe(permisos, "gastos", "escribir") === "todos" && <FormGasto presupuestoId={null} categorias={cats} />}
+          <ListaGastos gastos={generales.slice(0, 50)} puedeEliminar={alcanceDe(permisos, "gastos", "eliminar") === "todos"} />
+          {generales.length > 50 && <p className="text-sm text-muted-foreground">Se muestran los 50 más recientes del período.</p>}
+          {alcanceDe(permisos, "gastos", "escribir") === "todos" && (
+            <Plegable titulo="Nuevo gasto general">
+              <FormGasto presupuestoId={null} categorias={cats} sinTitulo />
+            </Plegable>
+          )}
         </section>
       )}
     </>
