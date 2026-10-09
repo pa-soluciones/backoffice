@@ -130,6 +130,20 @@
   }
   html {
     @apply font-sans;
+    accent-color: var(--pas-orange);
+    caret-color: var(--pas-orange);
+  }
+  ::selection {
+    background: #f4960040;
+    color: inherit;
+  }
+  /* Cifras alineadas en tablas y montos. */
+  table,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  a {
+    text-underline-offset: 3px;
   }
   h1, h2, h3 {
     @apply font-heading;
