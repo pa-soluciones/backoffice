@@ -22,7 +22,7 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: House, mobile: true, enabled: true },
-  { href: "/explorador", label: "Explorador", icon: FolderTree, mobile: true, enabled: false },
+  { href: "/explorador", label: "Explorador", icon: FolderTree, mobile: true, enabled: true },
   { href: "/seguimiento", label: "Seguimiento", icon: KanbanSquare, enabled: false },
   { href: "/agenda", label: "Agenda", icon: CalendarDays, mobile: true, enabled: false },
   { href: "/campo", label: "Campo", icon: HardHat, mobile: true, enabled: false },
