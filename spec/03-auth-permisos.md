@@ -18,7 +18,7 @@ Al finalizar: `must_complete_setup = false`, se invalidan las otras sesiones y s
 
 **RF-AUTH-03 [M]** Login con email (o nombre de usuario) + contraseña, y luego TOTP si el usuario tiene 2FA.
 **RF-AUTH-04 [M]** Bloqueo temporal tras 5 intentos fallidos (15 min), por cuenta y por IP.
-**RF-AUTH-05 [M]** Sesión en cookie httpOnly, `Secure`, `SameSite=Lax`. Duración 7 días deslizante; "Recordarme en este dispositivo" = 30 días.
+**RF-AUTH-05 [M]** Sesión en cookie httpOnly, `Secure`, `SameSite=Lax`. Duración 30 días deslizante; sin "Recordarme en este dispositivo" la cookie dura hasta cerrar el navegador.
 **RF-AUTH-06 [M]** Contraseña: mín. 10 caracteres; hash argon2id/scrypt (lo que provea Better Auth).
 **RF-AUTH-07 [S]** El usuario ve sus sesiones activas (dispositivo, última actividad) y puede cerrarlas.
 
@@ -35,7 +35,7 @@ Al finalizar: `must_complete_setup = false`, se invalidan las otras sesiones y s
 
 ## 4. Usuarios
 
-**RF-USR-01 [M]** Solo usuarios con `usuarios.escribir` crean usuarios: nombre, apellido, usuario, email (opcional; si se carga se valida), teléfono, roles, permisos adicionales, **imagen de firma** (opcional, PNG con transparencia), estado activo/inactivo.
+**RF-USR-01 [M]** Solo usuarios con `usuarios.escribir` crean usuarios: nombre y apellido (un campo), usuario, email (opcional; si se carga se valida), teléfono, roles, permisos adicionales, **imagen de firma** (opcional, PNG con transparencia), estado activo/inactivo.
 **RF-USR-02 [M]** Alta con contraseña temporal → cambio obligatorio en el primer login. 2FA opcional para no-admins (configurable por rol: "2FA obligatorio").
 **RF-USR-03 [M]** Los usuarios no se eliminan físicamente si tienen actividad: se **desactivan** (no pueden loguearse, se revocan sesiones y tokens MCP, se conservan en el historial).
 **RF-USR-04 [M]** Siempre debe existir al menos un admin activo (el sistema impide desactivar o quitar el rol al último).

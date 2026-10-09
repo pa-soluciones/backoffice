@@ -28,8 +28,8 @@ proveedores ─< compras ─< stock_movimientos
 ### Identidad y acceso
 | Tabla | Columnas clave |
 |---|---|
-| `users` | `id`, `kind` (`interno`\|`cliente`), `username` uq, `email` uq null, `email_verified`, `nombre`, `apellido`, `telefono`, `firma_archivo_id` null, `activo`, `must_change_password`, `must_complete_setup`, `two_factor_enabled`, `cliente_id` null (para portal futuro) |
-| `auth_*` | Tablas de Better Auth: `session`, `account` (hash de contraseña), `verification`, `two_factor` (secret, backup codes) |
+| `user` | Tabla de Better Auth (`src/db/auth-schema.ts`): `id`, `name`, `username` uq, `email` uq (usuarios sin correo: `<usuario>@sin-email.invalid`), `email_verified`, `two_factor_enabled` + campos propios `telefono`, `activo`, `must_change_password`, `must_complete_setup`. Pendientes: `firma_archivo_id` (F4), `kind`/`cliente_id` (portal) |
+| `session`, `account`, `verification`, `two_factor`, `rate_limit` | Tablas de Better Auth. `account.password` = hash; `verification` también guarda códigos de email y links de recuperación (hasheados) |
 | `recovery_secrets` | `user_id` pk, `frase_hash`, `email_recuperacion`, `email_verificado_at` |
 | `roles` | `id`, `nombre` uq, `descripcion`, `es_sistema`, `requiere_2fa` |
 | `role_permissions` / `user_permissions` | `role_id`/`user_id`, `modulo`, `accion`, `alcance` (`todos`\|`asignados`) — uq por (owner, modulo, accion) |
