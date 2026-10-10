@@ -52,4 +52,14 @@ test("certificación de obra: parcial desde lo ejecutado, final y emisión", asy
 
   await page.goto(`/presupuestos/${id}?tab=dinero`);
   await expect(page.getByRole("link", { name: /-C1.*Final · Emitida.*1\.512\.000,00/ })).toBeVisible();
+
+  // Carpeta de documentos: la versión vigente de cada uno, con su PDF.
+  await pestana(page, "Documentos");
+  const carpeta = page.locator("section").filter({ has: page.getByRole("heading", { name: "Documentos emitidos" }) });
+  await expect(carpeta.getByRole("listitem")).toHaveCount(2);
+  await expect(carpeta.getByText(/^\d{4}\/0001$/)).toBeVisible();
+  await expect(carpeta.getByText(/^Certificación · Final · Emitido/)).toBeVisible();
+  const pdf = page.waitForEvent("download");
+  await carpeta.getByRole("button", { name: /^Descargar PDF de \d{4}\/0001-C1$/ }).click();
+  expect((await pdf).suggestedFilename()).toMatch(/^PAS - Certificación \d{4}-0001-C1/);
 });

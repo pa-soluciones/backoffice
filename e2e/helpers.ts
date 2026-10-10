@@ -93,7 +93,7 @@ export async function ponerEnProgreso(page: import("@playwright/test").Page) {
 }
 
 /** Pestaña del detalle del presupuesto ("Presupuesto", "Obra", "Cobros y gastos", "Archivos", "Historial"). */
-export async function pestana(page: import("@playwright/test").Page, nombre: "Presupuesto" | "Obra" | "Cobros y gastos" | "Archivos" | "Historial") {
+export async function pestana(page: import("@playwright/test").Page, nombre: "Presupuesto" | "Documentos" | "Obra" | "Cobros y gastos" | "Archivos" | "Historial") {
   await page.getByRole("navigation", { name: "Secciones del presupuesto" }).getByRole("link", { name: new RegExp(`^${nombre}`) }).click();
   const { expect } = await import("@playwright/test");
   await expect(page).toHaveURL(new RegExp(`tab=`));
