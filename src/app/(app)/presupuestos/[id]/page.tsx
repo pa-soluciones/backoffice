@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarClock, CheckCircle2, FileText, HardHat, Info, Pencil, Sparkles } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardCheck, FilePlus2, FileSpreadsheet, FileText, HardHat, Info, Pencil, Ruler, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -19,7 +19,7 @@ import { listarAnexos } from "@/services/anexos";
 import { balancePresupuesto } from "@/services/campo";
 import { listarCertificaciones } from "@/services/certificaciones";
 import { listarCobros } from "@/services/cobros";
-import { documentosEmitidos } from "@/services/documentos";
+import { carpetaDocumentos, documentosEmitidos } from "@/services/documentos";
 import { ErrorNegocio } from "@/services/errores";
 import { resumenPresupuesto } from "@/services/finanzas";
 import { categorias as categoriasGasto, listarGastos } from "@/services/gastos";
@@ -53,8 +53,9 @@ const hoyAR = () => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(ne
 
 const ESTADO_VISITA = { pendiente: "Sin fecha", agendada: "Agendada", realizada: "Realizada", omitida: "Omitida", cancelada: "Cancelada" } as const;
 const EN_CURSO = ["en_progreso", "pendiente_liquidacion", "terminado"];
-const PESTANAS = { presupuesto: "Presupuesto", obra: "Obra", dinero: "Cobros y gastos", archivos: "Archivos", historial: "Historial" } as const;
+const PESTANAS = { presupuesto: "Presupuesto", documentos: "Documentos", obra: "Obra", dinero: "Cobros y gastos", archivos: "Archivos", historial: "Historial" } as const;
 type Pestana = keyof typeof PESTANAS;
+const ICONO_DOC = { presupuesto: FileText, adicional: FilePlus2, certificacion: ClipboardCheck, control: Ruler, reporte: FileSpreadsheet } as const;
 
 function Seccion({ titulo, children, accion }: { titulo: string; children: React.ReactNode; accion?: React.ReactNode }) {
   return (
@@ -120,7 +121,7 @@ async function Contenido({ params, searchParams }: { params: Promise<{ id: strin
   const permisos = await getPermisos(usuario.id);
   const puede = (m: Parameters<typeof alcanceDe>[1], a: Parameters<typeof alcanceDe>[2]) => !!alcanceDe(permisos, m, a);
   const enCurso = EN_CURSO.includes(p.estado);
-  const [admin, usuarios, responsables, docs, adicionales, anexos, balance, cobros, certificaciones, materiales, disponibles, gastos, cats, resumen, jornadas] = await Promise.all([
+  const [admin, usuarios, responsables, docs, adicionales, anexos, balance, cobros, certificaciones, materiales, disponibles, gastos, cats, resumen, jornadas, carpeta] = await Promise.all([
     esAdmin(usuario.id),
     opcionesUsuarios(),
     responsablesDeVisitas(p.visitas.map((v) => v.id)),
@@ -136,6 +137,7 @@ async function Contenido({ params, searchParams }: { params: Promise<{ id: strin
     categoriasGasto(),
     p.verMontos && enCurso ? resumenPresupuesto(id) : null,
     puede("agenda", "leer") && enCurso ? listarJornadas("2000-01-01", "2999-12-31", id) : null,
+    puede("documentos", "leer") ? carpetaDocumentos(id) : null,
   ]);
 
   const cerrado = esFinal(p.estado);
@@ -166,12 +168,13 @@ async function Contenido({ params, searchParams }: { params: Promise<{ id: strin
 
   // Pestañas visibles según el momento del presupuesto y los permisos.
   const visibles = (Object.keys(PESTANAS) as Pestana[]).filter(
-    (t) => t === "presupuesto" || t === "historial" || (t === "obra" && enCurso && (balance || materiales || jornadas)) || (t === "dinero" && enCurso && (cobros || gastos || resumen)) || (t === "archivos" && anexos),
+    (t) => t === "presupuesto" || t === "historial" || (t === "documentos" && carpeta) || (t === "obra" && enCurso && (balance || materiales || jornadas)) || (t === "dinero" && enCurso && (cobros || gastos || resumen)) || (t === "archivos" && anexos),
   );
   const pedida = typeof sp.tab === "string" && (visibles as string[]).includes(sp.tab) ? (sp.tab as Pestana) : "presupuesto";
   const marca: Partial<Record<Pestana, { texto: string; alerta?: boolean }>> = {
     obra: excedente > 0 ? { texto: `+${excedente}`, alerta: true } : avance != null ? { texto: `${avance}%` } : undefined,
     dinero: cobros && cobros.porCobrar > 0 ? { texto: "por cobrar", alerta: p.estado === "pendiente_liquidacion" } : undefined,
+    documentos: carpeta?.length ? { texto: String(carpeta.length) } : undefined,
     archivos: anexos?.length ? { texto: String(anexos.length) } : undefined,
   };
 
@@ -513,6 +516,33 @@ async function Contenido({ params, searchParams }: { params: Promise<{ id: strin
                 </Seccion>
               )}
             </>
+          )}
+
+          {pedida === "documentos" && carpeta && (
+            <Seccion titulo="Documentos emitidos">
+              <p className="-mt-1 text-sm text-muted-foreground">La versión vigente de cada documento, lista para descargar. Las revisiones anteriores quedan en la pestaña Presupuesto.</p>
+              {carpeta.length === 0 ? (
+                <Vacio>Todavía no se emitió ningún documento. Se suman acá al emitir el presupuesto, adicionales, certificaciones, controles y reportes.</Vacio>
+              ) : (
+                <ul className="divide-y rounded-xl border bg-card text-sm">
+                  {carpeta.map((d) => {
+                    const Icono = ICONO_DOC[d.tipo];
+                    return (
+                      <li key={d.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary-text" aria-hidden>
+                          <Icono className="size-4.5" />
+                        </span>
+                        <Link href={d.ruta} className="min-w-0 flex-1 hover:underline">
+                          <span className="block font-semibold">{d.codigo}</span>
+                          <span className="block text-xs text-muted-foreground">{[d.nombre, d.detalle, d.emitidoAt && `Emitido ${fecha.format(d.emitidoAt)}`].filter(Boolean).join(" · ")}</span>
+                        </Link>
+                        <Descargas documentoId={d.id} pdfPendiente={d.pdfPendiente} destacarPdf nombre={d.codigo} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Seccion>
           )}
 
           {pedida === "archivos" && anexos && (
