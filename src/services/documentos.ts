@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, max, ne } from "drizzle-orm";
+import { and, asc, desc, eq, max, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   adicionales,
@@ -450,4 +450,66 @@ export async function emitirControl(documentoId: string) {
   await auditar({ actorUserId: usuario.id, action: "documento.emitir", entityType: "presupuesto", entityId: doc.presupuestoId, entityLabel: datos.codigo, diff: { documentoId, registros: datos.registros.length } });
   await notificarPresupuesto(doc.presupuestoId, usuario.id, { tipo: "documento_emitido", titulo: `Se emitió el control ${datos.codigo}`, link: `/presupuestos/${doc.presupuestoId}/controles/${documentoId}` });
   return datos.codigo;
+}
+
+const ORDEN_TIPO = { presupuesto: 0, adicional: 1, certificacion: 2, control: 3, reporte: 4 } as const;
+
+/**
+ * Carpeta de documentos del presupuesto: la versión vigente de cada documento emitido, para
+ * consultarlos y bajarlos en un solo lugar. Del presupuesto, solo la última revisión emitida;
+ * los reportes mensuales son de la obra. Sin "ver montos" quedan solo los que no tienen precios.
+ */
+export async function carpetaDocumentos(presupuestoId: string) {
+  const { usuario } = await accesoDocumento(presupuestoId, "leer", false);
+  const verMontos = !!alcanceDe(await getPermisos(usuario.id), "presupuestos", "ver_montos");
+  const [p] = await db.select({ obraId: presupuestos.obraId }).from(presupuestos).where(eq(presupuestos.id, presupuestoId));
+  const filas = await db
+    .select({ d: documentos, revEstado: presupuestoRevisiones.estado, adNro: adicionales.nro, adEstado: adicionales.estado })
+    .from(documentos)
+    .leftJoin(presupuestoRevisiones, eq(presupuestoRevisiones.id, documentos.revisionId))
+    .leftJoin(adicionales, eq(adicionales.id, documentos.adicionalId))
+    .where(
+      and(
+        eq(documentos.estado, "emitido"),
+        p?.obraId
+          ? sql`(${documentos.presupuestoId} = ${presupuestoId} or (${documentos.tipo} = 'reporte' and ${documentos.reporte}->>'obraId' = ${p.obraId}))`
+          : eq(documentos.presupuestoId, presupuestoId),
+      ),
+    );
+  return filas
+    .filter(({ d, revEstado }) => (d.tipo !== "presupuesto" || revEstado === "emitida") && (verMontos || !conMontos(d.tipo)))
+    .map(({ d, adNro, adEstado }) => {
+      const snap = (d.snapshot ?? {}) as { codigo?: string };
+      const ruta =
+        d.tipo === "presupuesto"
+          ? `/presupuestos/${d.presupuestoId}/documento`
+          : d.tipo === "adicional"
+            ? `/presupuestos/${d.presupuestoId}/adicionales/${d.adicionalId}/documento`
+            : d.tipo === "control"
+              ? `/presupuestos/${d.presupuestoId}/controles/${d.id}`
+              : d.tipo === "certificacion"
+                ? `/presupuestos/${d.presupuestoId}/certificaciones/${d.id}`
+                : `/presupuestos/${d.presupuestoId}/reportes/${d.id}`;
+      const detalle =
+        d.tipo === "presupuesto"
+          ? "Revisión vigente"
+          : d.tipo === "adicional"
+            ? ({ enviado: "Enviado", aprobado: "Aprobado", rechazado: "Rechazado", cancelado: "Cancelado", borrador: "Borrador" } as const)[adEstado ?? "enviado"]
+            : d.tipo === "certificacion"
+              ? d.parametros?.tipo === "final"
+                ? "Final"
+                : "Parcial"
+              : null;
+      return {
+        id: d.id,
+        tipo: d.tipo,
+        nombre: NOMBRE_TIPO[d.tipo],
+        codigo: snap.codigo ?? (adNro ? `AD${adNro}` : NOMBRE_TIPO[d.tipo]),
+        detalle,
+        emitidoAt: d.emitidoAt,
+        pdfPendiente: d.pdfEstado !== "ok",
+        ruta,
+      };
+    })
+    .sort((a, b) => ORDEN_TIPO[a.tipo] - ORDEN_TIPO[b.tipo] || (b.emitidoAt?.getTime() ?? 0) - (a.emitidoAt?.getTime() ?? 0));
 }
